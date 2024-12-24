@@ -1,0 +1,16 @@
+- alias: "Notify Parent When Time Almost Up"
+  trigger:
+    platform: numeric_state
+    entity_id: sensor.kid1_played_time
+    above: 55  # 5 minutes before limit
+  action:
+    service: notify.mobile_app
+    data:
+      message: "Kid1's computer time ending in 5 minutes"
+
+- alias: "Reset Daily Limits"
+  trigger:
+    platform: time
+    at: "00:00:00"
+  action:
+    service: minertimer.reset_daily_limits 

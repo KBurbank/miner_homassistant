@@ -1,0 +1,22 @@
+{
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:miner}/mac-companion",
+            "name": "Debug MinerTimer (mac-companion)",
+            "program": "${workspaceFolder:miner}/mac-companion/.build/debug/MinerTimer",
+            "preLaunchTask": "swift: Build Debug MinerTimer (mac-companion)"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:miner}/mac-companion",
+            "name": "Release MinerTimer (mac-companion)",
+            "program": "${workspaceFolder:miner}/mac-companion/.build/release/MinerTimer",
+            "preLaunchTask": "swift: Build Release MinerTimer (mac-companion)"
+        }
+    ]
+}

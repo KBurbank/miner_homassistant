@@ -1,0 +1,15 @@
+name: "MinerTimer"
+version: "1.0.0"
+slug: "minertimer"
+description: "Game/App time management system"
+url: "https://github.com/yourusername/ha-minertimer"
+arch:
+  - armhf
+  - armv7
+  - aarch64
+  - amd64
+  - i386
+startup: application
+ingress: true
+panel_icon: mdi:timer
+panel_title: "MinerTimer" 

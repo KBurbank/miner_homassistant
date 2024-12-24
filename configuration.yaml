@@ -1,0 +1,14 @@
+minertimer:
+  users:
+    - name: kid1
+      default_limit: 60
+      weekend_limit: 120
+      processes:
+        - java
+        - Minecraft
+    - name: kid2
+      default_limit: 45
+      weekend_limit: 90
+      processes:
+        - Roblox
+        - Steam 

@@ -1,0 +1,190 @@
+Building for debugging...
+[0/5] Write sources
+[1/5] Write swift-version--58304C5D6DBC2206.txt
+[3/15] Compiling MinerTimer ProcessMonitor.swift
+[4/15] Compiling MinerTimer NotificationManager.swift
+[5/15] Compiling MinerTimer HomeAssistantClient.swift
+[6/16] Compiling MinerTimer HAConfig.swift
+Rename failed: /Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/AppKit-2E52K8BLPXB98-e86ea2c9.pcm.tmp -> /Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/AppKit-2E52K8BLPXB98.pcm: No such file or directory
+<unknown>:0: error: unable to rename temporary '/Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/AppKit-2E52K8BLPXB98-e86ea2c9.pcm.tmp' to output file '/Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/AppKit-2E52K8BLPXB98.pcm': 'No such file or directory'
+<unknown>:0: error: could not build Objective-C module 'AppKit'
+[7/16] Compiling MinerTimer HAResponses.swift
+Rename failed: /Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/AppKit-2E52K8BLPXB98-e86ea2c9.pcm.tmp -> /Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/AppKit-2E52K8BLPXB98.pcm: No such file or directory
+<unknown>:0: error: unable to rename temporary '/Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/AppKit-2E52K8BLPXB98-e86ea2c9.pcm.tmp' to output file '/Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/AppKit-2E52K8BLPXB98.pcm': 'No such file or directory'
+<unknown>:0: error: could not build Objective-C module 'AppKit'
+[8/16] Compiling MinerTimer ConfigManager.swift
+error: emit-module command failed with exit code 1 (use -v to see invocation)
+[9/16] Emitting module MinerTimer
+Rename failed: /Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/QuartzCore-KO6TAZ9XHBR8-ab48d9a2.pcm.tmp -> /Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/QuartzCore-KO6TAZ9XHBR8.pcm: No such file or directory
+<unknown>:0: error: unable to rename temporary '/Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/QuartzCore-KO6TAZ9XHBR8-ab48d9a2.pcm.tmp' to output file '/Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/QuartzCore-KO6TAZ9XHBR8.pcm': 'No such file or directory'
+<module-includes>:1:9: note: in file included from <module-includes>:1:
+1 | #import "Headers/AppKit.h"
+  |         `- note: in file included from <module-includes>:1:
+2 | #import "Headers/NSNibConnector.h"
+3 | #import "Headers/NSNibControlConnector.h"
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/AppKit.framework/Headers/AppKit.h:203:9: note: in file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/AppKit.framework/Headers/AppKit.h:203:
+201 | #import <AppKit/NSDrawer.h>
+202 | #import <AppKit/NSOpenGL.h>
+203 | #import <AppKit/NSOpenGLLayer.h>
+    |         `- note: in file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/AppKit.framework/Headers/AppKit.h:203:
+204 | #import <AppKit/NSOpenGLView.h>
+205 | #import <AppKit/NSApplicationScripting.h>
+
+<unknown>:0: error: could not build Objective-C module 'AppKit'
+Rename failed: /Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/Spatial-22B5FZ3PW3Y9S-c6238b06.pcm.tmp -> /Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/Spatial-22B5FZ3PW3Y9S.pcm: No such file or directory
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSOpenGLLayer.h:11:9: error: could not build module 'QuartzCore'
+ 9 | #import <AppKit/NSOpenGL.h>
+10 | #import <AppKit/AppKitDefines.h>
+11 | #import <QuartzCore/CAOpenGLLayer.h>
+   |         `- error: could not build module 'QuartzCore'
+12 | 
+13 | NS_HEADER_AUDIT_BEGIN(nullability, sendability)
+[10/16] Compiling MinerTimer Process.swift
+Rename failed: /Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/Metal-1B038G1N9AC0V-88d6d9c2.pcm.tmp -> /Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/Metal-1B038G1N9AC0V.pcm: No such file or directory
+<unknown>:0: error: unable to rename temporary '/Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/Metal-1B038G1N9AC0V-88d6d9c2.pcm.tmp' to output file '/Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/Metal-1B038G1N9AC0V.pcm': 'No such file or directory'
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSColor.h:51:9: note: while building module 'CoreImage' imported from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSColor.h:51:
+ 49 | #import <AppKit/NSPasteboard.h>
+ 50 | #import <AppKit/AppKitDefines.h>
+ 51 | #import <CoreImage/CIColor.h>
+    |         `- note: while building module 'CoreImage' imported from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSColor.h:51:
+ 52 | 
+ 53 | NS_HEADER_AUDIT_BEGIN(nullability, sendability)
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/CoreImage.framework/Headers/CIImage.h:15:9: note: while building module 'CoreVideo' imported from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/CoreImage.framework/Headers/CIImage.h:15:
+ 13 | #import <Foundation/Foundation.h>
+ 14 | #import <CoreImage/CoreImageDefines.h>
+ 15 | #import <CoreVideo/CoreVideo.h>
+    |         `- note: while building module 'CoreVideo' imported from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/CoreImage.framework/Headers/CIImage.h:15:
+ 16 | #import <ImageIO/ImageIO.h>
+ 17 | 
+
+<module-includes>:1:9: note: in file included from <module-includes>:1:
+1 | #import "Headers/CoreVideo.h"
+  |         `- note: in file included from <module-includes>:1:
+2 | #import "Headers/CVHostTime.h"
+3 | 
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/CoreVideo.framework/Headers/CoreVideo.h:58:10: note: in file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/CoreVideo.framework/Headers/CoreVideo.h:58:
+56 | #if TARGET_OS_MAC
+57 | #include <CoreVideo/CVMetalTexture.h>
+58 | #include <CoreVideo/CVMetalTextureCache.h>
+   |          `- note: in file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/CoreVideo.framework/Headers/CoreVideo.h:58:
+59 | #include <CoreVideo/CVMetalBuffer.h>
+60 | #include <CoreVideo/CVMetalBufferCache.h>
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/CoreVideo.framework/Headers/CVMetalTextureCache.h:41:9: error: could not build module 'Metal'
+ 39 | /* CVMetalTextureCacheRef is only available to Objective C code */
+ 40 | #if defined(__OBJC__) && COREVIDEO_SUPPORTS_METAL
+ 41 | #import <Metal/MTLPixelFormat.h>
+    |         `- error: could not build module 'Metal'
+ 42 | 
+ 43 | @protocol MTLDevice;
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSColor.h:51:9: note: while building module 'CoreImage' imported from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSColor.h:51:
+ 49 | #import <AppKit/NSPasteboard.h>
+ 50 | #import <AppKit/AppKitDefines.h>
+ 51 | #import <CoreImage/CIColor.h>
+    |         `- note: while building module 'CoreImage' imported from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSColor.h:51:
+ 52 | 
+ 53 | NS_HEADER_AUDIT_BEGIN(nullability, sendability)
+
+<module-includes>:1:9: note: in file included from <module-includes>:1:
+1 | #import "Headers/CoreImage.h"
+  |         `- note: in file included from <module-includes>:1:
+2 | #import "Headers/CIFilterBuiltins.h"
+3 | 
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/CoreImage.framework/Headers/CoreImage.h:13:10: note: in file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/CoreImage.framework/Headers/CoreImage.h:13:
+11 | #include <CoreImage/CIVector.h>
+12 | #include <CoreImage/CIColor.h>
+13 | #include <CoreImage/CIImage.h>
+   |          `- note: in file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/CoreImage.framework/Headers/CoreImage.h:13:
+14 | #include <CoreImage/CIContext.h>
+15 | #include <CoreImage/CIFilter.h>
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/CoreImage.framework/Headers/CIImage.h:15:9: error: could not build module 'CoreVideo'
+ 13 | #import <Foundation/Foundation.h>
+ 14 | #import <CoreImage/CoreImageDefines.h>
+ 15 | #import <CoreVideo/CoreVideo.h>
+    |         `- error: could not build module 'CoreVideo'
+ 16 | #import <ImageIO/ImageIO.h>
+ 17 | 
+
+<module-includes>:1:9: note: in file included from <module-includes>:1:
+1 | #import "Headers/AppKit.h"
+  |         `- note: in file included from <module-includes>:1:
+2 | #import "Headers/NSNibConnector.h"
+3 | #import "Headers/NSNibControlConnector.h"
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/AppKit.framework/Headers/AppKit.h:15:9: note: in file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/AppKit.framework/Headers/AppKit.h:15:
+ 13 | #import <AppKit/NSGraphicsContext.h>
+ 14 | #import <AppKit/NSAccessibility.h>
+ 15 | #import <AppKit/NSAccessibilityColor.h>
+    |         `- note: in file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/AppKit.framework/Headers/AppKit.h:15:
+ 16 | #import <AppKit/NSActionCell.h>
+ 17 | #import <AppKit/NSAlert.h>
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSAccessibilityColor.h:9:9: note: in file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSAccessibilityColor.h:9:
+ 7 | 
+ 8 | #import <Foundation/Foundation.h>
+ 9 | #import <AppKit/NSColor.h>
+   |         `- note: in file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSAccessibilityColor.h:9:
+10 | 
+11 | NS_HEADER_AUDIT_BEGIN(nullability, sendability)
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSColor.h:51:9: error: could not build module 'CoreImage'
+ 49 | #import <AppKit/NSPasteboard.h>
+ 50 | #import <AppKit/AppKitDefines.h>
+ 51 | #import <CoreImage/CIColor.h>
+    |         `- error: could not build module 'CoreImage'
+ 52 | 
+ 53 | NS_HEADER_AUDIT_BEGIN(nullability, sendability)
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSOpenGLLayer.h:11:9: note: while building module 'QuartzCore' imported from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSOpenGLLayer.h:11:
+ 9 | #import <AppKit/NSOpenGL.h>
+10 | #import <AppKit/AppKitDefines.h>
+11 | #import <QuartzCore/CAOpenGLLayer.h>
+   |         `- note: while building module 'QuartzCore' imported from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSOpenGLLayer.h:11:
+12 | 
+13 | NS_HEADER_AUDIT_BEGIN(nullability, sendability)
+
+<module-includes>:1:9: note: in file included from <module-includes>:1:
+1 | #import "Headers/QuartzCore.h"
+  |         `- note: in file included from <module-includes>:1:
+2 | 
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/QuartzCore.framework/Headers/QuartzCore.h:20:10: note: in file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/QuartzCore.framework/Headers/QuartzCore.h:20:
+18 | 
+19 | 
+20 | #include <QuartzCore/CoreAnimation.h>
+   |          `- note: in file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/QuartzCore.framework/Headers/QuartzCore.h:20:
+21 | 
+22 | #endif /* QUARTZCORE_H */
+
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/QuartzCore.framework/Headers/CoreAnimation.h:34:9: note: in file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/QuartzCore.framework/Headers/CoreAnimation.h:34:
+32 | #import <QuartzCore/CAMediaTimingFunction.h>
+33 | 
+34 | #import <QuartzCore/CAOpenGLLayer.h>
+   |         `- note: in file included from /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/QuartzCore.framework/Headers/CoreAnimation.h:34:
+35 | 
+36 | 
+
+<unknown>:0: error: could not build Objective-C module 'AppKit'
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/System/Library/Frameworks/QuartzCore.framework/Headers/CAOpenGLLayer.h:9:9: error: could not build module 'CoreVideo'
+ 7 | 
+ 8 | #import <QuartzCore/CALayer.h>
+ 9 | #import <CoreVideo/CVBase.h>
+   |         `- error: could not build module 'CoreVideo'
+10 | #import <OpenGL/OpenGL.h>
+11 | 
+[11/16] Compiling MinerTimer AppDelegate.swift
+Rename failed: /Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/AppKit-2E52K8BLPXB98-c462561a.pcm.tmp -> /Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/AppKit-2E52K8BLPXB98.pcm: No such file or directory
+<unknown>:0: error: unable to rename temporary '/Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/AppKit-2E52K8BLPXB98-c462561a.pcm.tmp' to output file '/Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/AppKit-2E52K8BLPXB98.pcm': 'No such file or directory'
+<unknown>:0: error: could not build Objective-C module 'AppKit'
+[12/16] Compiling MinerTimer MinerTimerApp.swift
+Rename failed: /Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/AppKit-2E52K8BLPXB98-c462561a.pcm.tmp -> /Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/AppKit-2E52K8BLPXB98.pcm: No such file or directory
+<unknown>:0: error: unable to rename temporary '/Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/AppKit-2E52K8BLPXB98-c462561a.pcm.tmp' to output file '/Users/kendra/Documents/code/miner/mac-companion/.build/arm64-apple-macosx/debug/ModuleCache/22A1NRWU12ZRX/AppKit-2E52K8BLPXB98.pcm': 'No such file or directory'
+<unknown>:0: error: could not build Objective-C module 'AppKit'
+[13/16] Compiling MinerTimer ContentView.swift
+App bundle created at MinerTimer.app
