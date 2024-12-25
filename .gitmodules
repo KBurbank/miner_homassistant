@@ -1,0 +1,3 @@
+[submodule "minertimer-ha"]
+	path = minertimer-ha
+	url = git@github.com:kburbank/minertimer-ha.git
