@@ -1,0 +1,10 @@
+# Home Assistant Integration Configuration
+minertimer:
+  name: MinerTimer
+  domain: minertimer
+  documentation: https://github.com/yourusername/minertimer
+  dependencies: []
+  codeowners:
+    - '@yourusername'
+  iot_class: local_push
+  config_flow: true 

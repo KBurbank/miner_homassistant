@@ -63,6 +63,9 @@ launchctl load ~/Library/LaunchAgents/com.soferio.minertimer.plist
 touch /Users/Shared/minertimer/service.log
 touch /Users/Shared/minertimer/service.error.log
 
+# Add new instructions
+echo "3. Install the MinerTimer integration from HACS (see https://github.com/kburbank/minertimer-ha)"
+
 echo "Installation complete. You may need to:"
 echo "1. Allow MinerTimer in System Preferences → Security & Privacy → Privacy → Accessibility"
 echo "2. Allow MinerTimer in System Preferences → Security & Privacy → Privacy → Full Disk Access"

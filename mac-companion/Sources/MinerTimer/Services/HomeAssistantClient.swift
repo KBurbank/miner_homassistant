@@ -3,15 +3,60 @@ import Foundation
 class HomeAssistantClient {
     private let baseURL: URL
     private let token: String
-    private let entityID: String
+    private var entityID: String?
     
     init(config: HAConfig) {
         self.baseURL = config.baseURL
         self.token = config.token
-        self.entityID = config.entityID
+        self.entityID = config.entityID  // Keep initial value from config
+        startDiscovery()
+    }
+    
+    private func startDiscovery() {
+        Task { @MainActor in
+            do {
+                // Check if integration exists
+                let url = baseURL.appendingPathComponent("api/integrations/minertimer")
+                var request = URLRequest(url: url)
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+                
+                let (data, _) = try await URLSession.shared.data(for: request)
+                
+                // If not found, trigger discovery
+                if let response = try? JSONDecoder().decode(HADiscoveryResponse.self, from: data),
+                   !response.configured {
+                    try await triggerDiscovery()
+                    // Set default entity ID after discovery
+                    self.entityID = "input_number.minecraft_time_limit"
+                }
+                
+                Logger.shared.log("Integration discovered and configured")
+            } catch {
+                Logger.shared.log("Error discovering integration: \(error)")
+            }
+        }
+    }
+    
+    private func triggerDiscovery() async throws {
+        var request = URLRequest(url: baseURL.appendingPathComponent("api/config/config_entries/flow"))
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let payload = HADiscoveryPayload(handler: "minertimer", showAdvancedOptions: false)
+        request.httpBody = try JSONEncoder().encode(payload)
+        
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+            throw HAError.discoveryFailed
+        }
     }
     
     func getCurrentLimit() async throws -> TimeInterval {
+        guard let entityID = entityID else {
+            throw HAError.notConfigured
+        }
+        
         Logger.shared.log("HA Client: Getting current limit...")
         let url = baseURL.appendingPathComponent("api/states/\(entityID)")
         
@@ -65,6 +110,10 @@ class HomeAssistantClient {
     }
     
     func updateLimit(_ newLimit: TimeInterval) async throws {
+        guard let entityID = entityID else {
+            throw HAError.notConfigured
+        }
+        
         let url = baseURL
             .appendingPathComponent("api")
             .appendingPathComponent("services")
@@ -105,6 +154,8 @@ enum HAError: LocalizedError {
     case serverError(Int)
     case decodingError(Error)
     case requestFailed(statusCode: Int)
+    case discoveryFailed
+    case notConfigured
     
     var errorDescription: String? {
         switch self {
@@ -120,6 +171,10 @@ enum HAError: LocalizedError {
             return "Failed to decode response: \(error.localizedDescription)"
         case .requestFailed(let statusCode):
             return "Request failed (HTTP \(statusCode))"
+        case .discoveryFailed:
+            return "Discovery failed"
+        case .notConfigured:
+            return "Home Assistant integration not configured"
         }
     }
 } 

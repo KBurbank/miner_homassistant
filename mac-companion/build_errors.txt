@@ -2,22 +2,18 @@ Building for debugging...
 [0/6] Write sources
 [1/6] Write MinerTimer-entitlement.plist
 [2/6] Write swift-version--58304C5D6DBC2206.txt
-[4/21] Compiling MinerTimer ServiceManager.swift
-[5/21] Compiling MinerTimer StatusBarManager.swift
-[6/21] Emitting module MinerTimer
-[7/21] Compiling MinerTimer PersistenceManager.swift
-[8/21] Compiling MinerTimer ProcessMonitor.swift
-[9/21] Compiling MinerTimer NotificationManager.swift
-[10/21] Compiling MinerTimer PasswordManager.swift
-[11/21] Compiling MinerTimer HomeAssistantClient.swift
-[12/21] Compiling MinerTimer Logger.swift
-[13/22] Compiling MinerTimer Process.swift
-[14/22] Compiling MinerTimer ConfigManager.swift
-[15/22] Compiling MinerTimer HAConfig.swift
-[16/22] Compiling MinerTimer HAResponses.swift
-[17/22] Compiling MinerTimer AppDelegate.swift
-[18/22] Compiling MinerTimer MinerTimerApp.swift
-[19/22] Compiling MinerTimer ContentView.swift
+[4/21] Compiling MinerTimer HomeAssistantClient.swift
+[5/21] Compiling MinerTimer Logger.swift
+[6/22] Compiling MinerTimer NotificationManager.swift
+[7/22] Compiling MinerTimer PasswordManager.swift
+[8/22] Compiling MinerTimer PersistenceManager.swift
+[9/22] Compiling MinerTimer ProcessMonitor.swift
+[10/22] Compiling MinerTimer HAConfig.swift
+[11/22] Compiling MinerTimer HAResponses.swift
+[12/22] Emitting module MinerTimer
+[13/22] Compiling MinerTimer ServiceManager.swift
+[14/22] Compiling MinerTimer StatusBarManager.swift
+[15/22] Compiling MinerTimer ContentView.swift
 /Users/kendra/Documents/code/miner/mac-companion/Sources/MinerTimer/Views/ContentView.swift:24:21: warning: no 'async' operations occur within 'await' expression
 22 |             Button("Simulate Process") {
 23 |                 Task {
@@ -25,9 +21,13 @@ Building for debugging...
    |                     `- warning: no 'async' operations occur within 'await' expression
 25 |                 }
 26 |             }
+[16/22] Compiling MinerTimer Process.swift
+[17/22] Compiling MinerTimer ConfigManager.swift
+[18/22] Compiling MinerTimer AppDelegate.swift
+[19/22] Compiling MinerTimer MinerTimerApp.swift
 [19/22] Write Objects.LinkFileList
 [20/22] Linking MinerTimer
 [21/22] Applying MinerTimer
-Build complete! (7.66s)
+Build complete! (7.96s)
 Build successful!
 App bundle created at MinerTimer.app
