@@ -2,20 +2,15 @@ import AppKit
 import SwiftUI
 
 class AppDelegate: NSObject, NSApplicationDelegate {
-    var window: NSWindow?
-    private var processMonitor: ProcessMonitor!
+    var window: NSWindow!
+    var processMonitor: ProcessMonitor!
     
     func applicationDidFinishLaunching(_ notification: Notification) {
-        print("App launched!")
-        
         // Initialize ProcessMonitor
-        let config = ConfigManager.loadConfig()
-        let haClient = HomeAssistantClient(config: config)
-        processMonitor = ProcessMonitor(haClient: haClient)
+        processMonitor = ProcessMonitor(haClient: nil)
         
         // Create window
-        let contentView = ContentView()
-            .environmentObject(processMonitor)
+        let contentView = ContentView(processMonitor: processMonitor)
         
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 300, height: 400),
@@ -24,12 +19,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             defer: false
         )
         
-        window?.title = "MinerTimer"
-        window?.contentView = NSHostingView(rootView: contentView)
-        window?.center()
-        window?.makeKeyAndOrderFront(nil)
+        window.title = "MinerTimer"
+        window.center()
+        window.contentView = NSHostingView(rootView: contentView)
+        window.makeKeyAndOrderFront(nil)
         
-        NSApp.activate(ignoringOtherApps: true)
+        // Start services
+        Task {
+            await ServiceManager.shared.startServices()
+            if let haClient = ServiceManager.shared.getHAClient() {
+                processMonitor.setHAClient(haClient)
+            }
+        }
     }
     
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

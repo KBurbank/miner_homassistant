@@ -1,65 +1,90 @@
 import Foundation
 
+@MainActor
 class ProcessMonitor: ObservableObject {
     private var timer: Timer?
-    let haClient: HomeAssistantClient
+    private var haClient: HomeAssistantClient?
     
-    @Published var monitoredProcess: GameProcess? {
-        willSet {
-            Logger.shared.log("ProcessMonitor: Process state changing from \(monitoredProcess?.state.rawValue ?? "nil") to \(newValue?.state.rawValue ?? "nil")")
-        }
-    }
+    @Published var monitoredProcess: GameProcess?
     @Published var playedTime: TimeInterval = 0
     @Published var currentLimit: TimeInterval = 0
     
-    init(haClient: HomeAssistantClient) {
-        Logger.shared.log("ProcessMonitor: Initializing with HA client")
+    init(haClient: HomeAssistantClient?) {
+        Logger.shared.log("ProcessMonitor: Initializing")
         self.haClient = haClient
+        
+        // Load saved state immediately
+        if let state = PersistenceManager.shared.loadTimeState() {
+            self.playedTime = state.playedTime
+            Logger.shared.log("Loaded initial state: \(playedTime) minutes")
+        }
+        
         startMonitoring()
+    }
+    
+    func setHAClient(_ client: HomeAssistantClient) {
+        self.haClient = client
+        // Get initial limit from HA
+        Task {
+            do {
+                let limit = try await client.getCurrentLimit()
+                self.currentLimit = limit
+                Logger.shared.log("Got initial limit from HA: \(limit)")
+            } catch {
+                Logger.shared.log("Error getting initial limit: \(error)")
+            }
+        }
     }
     
     func startMonitoring() {
         Logger.shared.log("ProcessMonitor: Starting monitoring")
-        // Check processes every 15 seconds
-        timer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
-            self?.checkProcesses()
-            
-            // Update time if process is running
-            if let process = self?.monitoredProcess {
-                if process.state == .running {
-                    self?.playedTime += 0.25 // Add 15 seconds (0.25 minutes)
-                }
+        Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.checkProcesses()
                 
-                // Report to HA and check limits
-                Task {
-                    do {
-                        Logger.shared.log("ProcessMonitor: Updating played time to \(self?.playedTime ?? 0)")
-                        try await self?.haClient.updatePlayedTime(self?.playedTime ?? 0)
-                        
-                        // Get current limit
-                        let limit = try await self?.haClient.getCurrentLimit() ?? 0
-                        await MainActor.run {
-                            self?.currentLimit = limit
+                // Update time if process is running
+                if let process = self?.monitoredProcess {
+                    if process.state == .running {
+                        self?.playedTime += 0.25 // Add 15 seconds (0.25 minutes)
+                        // Save state when time changes
+                        if let playedTime = self?.playedTime {
+                            PersistenceManager.shared.saveTimeState(playedTime: playedTime)
                         }
-                        
-                        // Check if we need to suspend or resume
-                        if let self = self, let pid = self.monitoredProcess?.pid {
-                            Logger.shared.log("ProcessMonitor: Checking limits - Played: \(self.playedTime), Limit: \(limit), State: \(self.monitoredProcess?.state.rawValue ?? "unknown")")
-                            
-                            if self.playedTime >= limit {
-                                if self.monitoredProcess?.state == .running {
-                                    Logger.shared.log("ProcessMonitor: Time limit reached, suspending process")
-                                    self.suspendProcess(pid)
+                    }
+                    
+                    // Report to HA and check limits
+                    if let self = self {
+                        Task {
+                            do {
+                                Logger.shared.log("ProcessMonitor: Updating played time to \(self.playedTime)")
+                                try await self.updatePlayedTime(self.playedTime)
+                                
+                                // Get current limit
+                                let limit = try await self.getCurrentLimit()
+                                await MainActor.run {
+                                    self.currentLimit = limit
                                 }
-                            } else if self.playedTime < limit {  // Explicit comparison
-                                if self.monitoredProcess?.state == .suspended {
-                                    Logger.shared.log("ProcessMonitor: Time available (\(limit - self.playedTime) minutes), resuming process")
-                                    self.resumeProcess(pid)
+                                
+                                // Check if we need to suspend or resume
+                                if let pid = self.monitoredProcess?.pid {
+                                    Logger.shared.log("ProcessMonitor: Checking limits - Played: \(self.playedTime), Limit: \(limit), State: \(self.monitoredProcess?.state.rawValue ?? "unknown")")
+                                    
+                                    if self.playedTime >= limit {
+                                        if self.monitoredProcess?.state == .running {
+                                            Logger.shared.log("ProcessMonitor: Time limit reached, suspending process")
+                                            self.suspendProcess(pid)
+                                        }
+                                    } else if self.playedTime < limit {  // Explicit comparison
+                                        if self.monitoredProcess?.state == .suspended {
+                                            Logger.shared.log("ProcessMonitor: Time available (\(limit - self.playedTime) minutes), resuming process")
+                                            self.resumeProcess(pid)
+                                        }
+                                    }
                                 }
+                            } catch {
+                                Logger.shared.log("ProcessMonitor: Error updating time: \(error)")
                             }
                         }
-                    } catch {
-                        Logger.shared.log("ProcessMonitor: Error updating time: \(error)")
                     }
                 }
             }
@@ -128,6 +153,55 @@ class ProcessMonitor: ObservableObject {
         if var process = monitoredProcess {
             process.state = .running
             monitoredProcess = process
+        }
+    }
+    
+    // Also save state when time is reset
+    func resetTime() {
+        playedTime = 0
+        PersistenceManager.shared.saveTimeState(playedTime: 0)
+    }
+    
+    // Add these public methods for HA operations
+    func getCurrentLimit() async throws -> TimeInterval {
+        guard let client = haClient else {
+            throw ProcessError.noHAClient
+        }
+        return try await client.getCurrentLimit()
+    }
+    
+    func updateLimit(_ newLimit: TimeInterval) async throws {
+        guard let client = haClient else {
+            throw ProcessError.noHAClient
+        }
+        try await client.updateLimit(newLimit)
+    }
+    
+    func updatePlayedTime(_ time: TimeInterval) async throws {
+        guard let client = haClient else {
+            throw ProcessError.noHAClient
+        }
+        try await client.updatePlayedTime(time)
+    }
+    
+    func simulateProcess() {
+        monitoredProcess = GameProcess(
+            pid: 1234,
+            name: "Minecraft",
+            state: .running,
+            startTime: Date()
+        )
+        Logger.shared.log("ProcessMonitor: Simulated new process")
+    }
+    
+    enum ProcessError: LocalizedError {
+        case noHAClient
+        
+        var errorDescription: String? {
+            switch self {
+            case .noHAClient:
+                return "Home Assistant client not initialized"
+            }
         }
     }
 } 

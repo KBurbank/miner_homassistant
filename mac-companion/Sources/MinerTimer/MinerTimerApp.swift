@@ -1,19 +1,60 @@
 import Cocoa
 
 @main
+@MainActor
 class MinerTimerApp: NSObject, NSApplicationDelegate {
     var window: NSWindow!
     var processMonitor: ProcessMonitor!
     private var resumeButton: NSButton!
     private var debugInfo: NSTextField!
+    private var serviceMode = false
+    
+    static func main() {
+        let app = NSApplication.shared
+        if CommandLine.arguments.contains("--service") {
+            // In service mode, prevent GUI elements
+            app.setActivationPolicy(.prohibited)
+        }
+        let delegate = MinerTimerApp()
+        delegate.serviceMode = CommandLine.arguments.contains("--service")
+        app.delegate = delegate
+        app.run()
+    }
     
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let config = ConfigManager.loadConfig()
-        let haClient = HomeAssistantClient(config: config)
-        processMonitor = ProcessMonitor(haClient: haClient)
+        // Create ProcessMonitor immediately with nil client
+        processMonitor = ProcessMonitor(haClient: nil)
         
-        setupWindow()
-        setupMenu()
+        if !serviceMode {
+            // Set up GUI immediately with saved state
+            setupWindow()
+            setupMenu()
+            StatusBarManager.shared.setApp(self)
+            StatusBarManager.shared.setProcessMonitor(processMonitor)
+        }
+        
+        // Then start services async
+        Task {
+            await ServiceManager.shared.startServices()
+            
+            if let haClient = ServiceManager.shared.getHAClient() {
+                // Update the existing ProcessMonitor with the HA client
+                processMonitor.setHAClient(haClient)
+            } else {
+                Logger.shared.log("Failed to initialize services, exiting...")
+                NSApplication.shared.terminate(nil)
+            }
+        }
+    }
+    
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        // Don't quit when window closes
+        return false
+    }
+    
+    func applicationWillTerminate(_ notification: Notification) {
+        // Just close the window, services keep running
+        window?.close()
     }
     
     private func setupWindow() {
@@ -45,7 +86,7 @@ class MinerTimerApp: NSObject, NSApplicationDelegate {
         simulateButton.title = "Simulate Process"
         simulateButton.bezelStyle = .rounded
         simulateButton.target = self
-        simulateButton.action = #selector(simulateProcess)
+        simulateButton.action = #selector(handleSimulateProcess)
         view.addSubview(simulateButton)
         
         let testHAButton = NSButton(frame: NSRect(x: 20, y: 240, width: 260, height: 32))
@@ -59,7 +100,7 @@ class MinerTimerApp: NSObject, NSApplicationDelegate {
         resetButton.title = "Reset Time"
         resetButton.bezelStyle = .rounded
         resetButton.target = self
-        resetButton.action = #selector(resetTime)
+        resetButton.action = #selector(handleResetTime)
         view.addSubview(resetButton)
         
         let showConfigButton = NSButton(frame: NSRect(x: 20, y: 160, width: 260, height: 32))
@@ -74,7 +115,7 @@ class MinerTimerApp: NSObject, NSApplicationDelegate {
         resumeButton.title = "Resume Process"
         resumeButton.bezelStyle = .rounded
         resumeButton.target = self
-        resumeButton.action = #selector(resumeCurrentProcess)
+        resumeButton.action = #selector(handleResumeProcess)
         resumeButton.isEnabled = false
         view.addSubview(resumeButton)
         
@@ -89,19 +130,21 @@ class MinerTimerApp: NSObject, NSApplicationDelegate {
         
         // Update debug info periodically
         Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            guard let self = self else { return }
-            
-            // Update debug info
-            var info = "Debug Info:\n"
-            info += "Played Time: \(self.processMonitor.playedTime)\n"
-            info += "Current Limit: \(self.processMonitor.currentLimit)\n"
-            if let process = self.processMonitor.monitoredProcess {
-                info += "Process: \(process.name) (\(process.state.rawValue))"
-                self.resumeButton.isEnabled = (process.state == .suspended)
-            } else {
-                self.resumeButton.isEnabled = false
+            Task { @MainActor in
+                guard let self = self else { return }
+                
+                // Update debug info
+                var info = "Debug Info:\n"
+                info += "Played Time: \(self.processMonitor.playedTime)\n"
+                info += "Current Limit: \(self.processMonitor.currentLimit)\n"
+                if let process = self.processMonitor.monitoredProcess {
+                    info += "Process: \(process.name) (\(process.state.rawValue))"
+                    self.resumeButton.isEnabled = (process.state == .suspended)
+                } else {
+                    self.resumeButton.isEnabled = false
+                }
+                self.debugInfo.stringValue = info
             }
-            self.debugInfo.stringValue = info
         }
         
         window.contentView = view
@@ -126,7 +169,7 @@ class MinerTimerApp: NSObject, NSApplicationDelegate {
         NSApplication.shared.mainMenu = mainMenu
     }
     
-    @objc func simulateProcess() {
+    @objc func simulateProcess() async {
         processMonitor.monitoredProcess = GameProcess(
             pid: 1234,
             name: "Minecraft",
@@ -139,29 +182,35 @@ class MinerTimerApp: NSObject, NSApplicationDelegate {
         Logger.shared.log("Testing HA Connection...")
         Task {
             do {
-                let limit = try await processMonitor.haClient.getCurrentLimit()
+                let limit = try await processMonitor.getCurrentLimit()
                 Logger.shared.log("Got limit from HA: \(limit)")
-                // Show alert with result
-                let alert = NSAlert()
-                alert.messageText = "Home Assistant Connection Test"
-                alert.informativeText = "Successfully got limit: \(limit) minutes"
-                alert.alertStyle = .informational
-                alert.addButton(withTitle: "OK")
-                alert.runModal()
+                
+                // Show alert on main thread
+                await MainActor.run {
+                    let alert = NSAlert()
+                    alert.messageText = "Home Assistant Connection Test"
+                    alert.informativeText = "Successfully got limit: \(limit) minutes"
+                    alert.alertStyle = .informational
+                    alert.addButton(withTitle: "OK")
+                    alert.runModal()
+                }
             } catch {
                 print("HA Error: \(error)")
-                // Show error alert
-                let alert = NSAlert()
-                alert.messageText = "Home Assistant Connection Error"
-                alert.informativeText = error.localizedDescription
-                alert.alertStyle = .warning
-                alert.addButton(withTitle: "OK")
-                alert.runModal()
+                
+                // Show error alert on main thread
+                await MainActor.run {
+                    let alert = NSAlert()
+                    alert.messageText = "Home Assistant Connection Error"
+                    alert.informativeText = error.localizedDescription
+                    alert.alertStyle = .warning
+                    alert.addButton(withTitle: "OK")
+                    alert.runModal()
+                }
             }
         }
     }
     
-    @objc func resetTime() {
+    @objc func resetTime() async {
         print("Resetting time...")
         processMonitor.playedTime = 0
         // Show confirmation
@@ -211,7 +260,7 @@ class MinerTimerApp: NSObject, NSApplicationDelegate {
         }
     }
     
-    @objc func resumeCurrentProcess() {
+    @objc func resumeCurrentProcess() async {
         Logger.shared.log("Manual resume requested")
         if let process = processMonitor.monitoredProcess {
             Logger.shared.log("Current process state: \(process.state.rawValue)")
@@ -224,10 +273,15 @@ class MinerTimerApp: NSObject, NSApplicationDelegate {
         }
     }
     
-    static func main() {
-        let app = NSApplication.shared
-        let delegate = MinerTimerApp()
-        app.delegate = delegate
-        app.run()
+    @objc private func handleSimulateProcess() {
+        Task { await simulateProcess() }
+    }
+    
+    @objc private func handleResetTime() {
+        Task { await resetTime() }
+    }
+    
+    @objc private func handleResumeProcess() {
+        Task { await resumeCurrentProcess() }
     }
 } 

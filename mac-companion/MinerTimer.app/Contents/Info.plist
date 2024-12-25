@@ -14,13 +14,9 @@
     <string>10.15</string>
     <key>CFBundleVersion</key>
     <string>1</string>
-    <key>NSHighResolutionCapable</key>
-    <true/>
-    <key>LSApplicationCategoryType</key>
-    <string>public.app-category.utilities</string>
-    <key>CFBundleExecutable</key>
-    <string>MinerTimer</string>
-    <key>NSPrincipalClass</key>
-    <string>NSApplication</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>MinerTimer needs to monitor processes</string>
+    <key>NSSystemAdministrationUsageDescription</key>
+    <string>MinerTimer needs to manage processes</string>
 </dict>
-</plist>
+</plist> 

@@ -37,34 +37,15 @@ fi
 
 cp "$BUILD_DIR/MinerTimer" "$MACOS_DIR/"
 
-# Create Info.plist
-cat > "$CONTENTS_DIR/Info.plist" << EOL
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleIdentifier</key>
-    <string>com.soferio.minertimer</string>
-    <key>CFBundleName</key>
-    <string>MinerTimer</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>10.15</string>
-    <key>CFBundleVersion</key>
-    <string>1</string>
-    <key>NSHighResolutionCapable</key>
-    <true/>
-    <key>LSApplicationCategoryType</key>
-    <string>public.app-category.utilities</string>
-    <key>CFBundleExecutable</key>
-    <string>MinerTimer</string>
-    <key>NSPrincipalClass</key>
-    <string>NSApplication</string>
-</dict>
-</plist>
-EOL
+# Copy Info.plist
+cp "Sources/MinerTimer/Info.plist" "$CONTENTS_DIR/"
 
-echo "App bundle created at $APP_BUNDLE" 
+# Build complete
+echo "App bundle created at $APP_BUNDLE"
+
+# Run install script if --install flag is provided
+if [[ "$1" == "--install" ]]; then
+    echo "Installing MinerTimer..."
+    chmod +x Scripts/install.sh
+    ./Scripts/install.sh
+fi 

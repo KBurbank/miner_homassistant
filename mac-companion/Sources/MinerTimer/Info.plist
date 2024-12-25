@@ -11,8 +11,12 @@
     <key>CFBundleShortVersionString</key>
     <string>1.0</string>
     <key>LSMinimumSystemVersion</key>
-    <string>12.0</string>
+    <string>10.15</string>
     <key>CFBundleVersion</key>
     <string>1</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>MinerTimer needs to monitor processes</string>
+    <key>NSSystemAdministrationUsageDescription</key>
+    <string>MinerTimer needs to manage processes</string>
 </dict>
 </plist> 

@@ -63,6 +63,38 @@ class HomeAssistantClient {
         
         let (_, _) = try await URLSession.shared.data(for: request)
     }
+    
+    func updateLimit(_ newLimit: TimeInterval) async throws {
+        let url = baseURL
+            .appendingPathComponent("api")
+            .appendingPathComponent("services")
+            .appendingPathComponent("input_number")
+            .appendingPathComponent("set_value")
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let payload = [
+            "entity_id": entityID,
+            "value": newLimit
+        ] as [String : Any]
+        
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+        
+        let (_, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw HAError.invalidResponse
+        }
+        
+        guard httpResponse.statusCode == 200 else {
+            throw HAError.requestFailed(statusCode: httpResponse.statusCode)
+        }
+        
+        Logger.shared.log("Successfully updated time limit to \(newLimit) minutes")
+    }
 }
 
 // Add custom error types
@@ -72,6 +104,7 @@ enum HAError: LocalizedError {
     case entityNotFound(String)
     case serverError(Int)
     case decodingError(Error)
+    case requestFailed(statusCode: Int)
     
     var errorDescription: String? {
         switch self {
@@ -85,6 +118,8 @@ enum HAError: LocalizedError {
             return "Server error (HTTP \(code))"
         case .decodingError(let error):
             return "Failed to decode response: \(error.localizedDescription)"
+        case .requestFailed(let statusCode):
+            return "Request failed (HTTP \(statusCode))"
         }
     }
 } 

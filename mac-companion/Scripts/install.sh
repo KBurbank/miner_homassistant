@@ -1,20 +1,68 @@
 #!/bin/bash
 
-# New installer for Swift-based MinerTimer
-APP_NAME="MinerTimer"
-INSTALL_DIR="/Applications/$APP_NAME.app"
-LAUNCHD_PLIST="/Library/LaunchDaemons/com.soferio.minertimer.plist"
+# Ensure directories exist
+sudo mkdir -p /Users/Shared/minertimer
+sudo chown $USER /Users/Shared/minertimer
+mkdir -p ~/Library/LaunchAgents
 
-echo "Building $APP_NAME..."
-cd "$(dirname "$0")/.."
-swift build -c release
+# Copy app to Applications
+sudo cp -R MinerTimer.app /Applications/
+sudo chown -R $USER /Applications/MinerTimer.app
 
-echo "Creating application bundle..."
-mkdir -p "$INSTALL_DIR/Contents/MacOS"
-cp ".build/release/MinerTimer" "$INSTALL_DIR/Contents/MacOS/"
+# Migrate config
+./Scripts/migrate_config.sh
 
-echo "Installing LaunchDaemon..."
-sudo cp "Scripts/launchd/com.soferio.minertimer.plist" "$LAUNCHD_PLIST"
-sudo launchctl load "$LAUNCHD_PLIST"
+# Set up persistence directory
+sudo mkdir -p /Users/Shared/minertimer
+sudo chown $USER /Users/Shared/minertimer
+touch /Users/Shared/minertimer/timestate.json
+chmod 644 /Users/Shared/minertimer/timestate.json
 
-echo "Installation complete!"
+# Set up password file
+echo "Enter password for adding time:"
+read -s password
+echo "$password" > /Users/Shared/minertimer/password.txt
+chmod 600 /Users/Shared/minertimer/password.txt
+
+# Create LaunchAgent plist
+cat > ~/Library/LaunchAgents/com.soferio.minertimer.plist << EOL
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.soferio.minertimer</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Applications/MinerTimer.app/Contents/MacOS/MinerTimer</string>
+        <string>--service</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>StandardOutPath</key>
+    <string>/Users/Shared/minertimer/service.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/Shared/minertimer/service.error.log</string>
+    <key>WorkingDirectory</key>
+    <string>/Users/Shared/minertimer</string>
+    <key>LimitLoadToSessionType</key>
+    <string>Aqua</string>
+</dict>
+</plist>
+EOL
+
+# Install LaunchAgent
+launchctl unload ~/Library/LaunchAgents/com.soferio.minertimer.plist 2>/dev/null || true
+launchctl load ~/Library/LaunchAgents/com.soferio.minertimer.plist
+
+# Set up logging
+touch /Users/Shared/minertimer/service.log
+touch /Users/Shared/minertimer/service.error.log
+
+echo "Installation complete. You may need to:"
+echo "1. Allow MinerTimer in System Preferences → Security & Privacy → Privacy → Accessibility"
+echo "2. Allow MinerTimer in System Preferences → Security & Privacy → Privacy → Full Disk Access"
