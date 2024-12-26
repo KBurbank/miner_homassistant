@@ -8,12 +8,15 @@ CONTENTS_DIR="$APP_BUNDLE/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 
-# Clean previous builds
-if [ -d ".build" ]; then
-    chmod -R u+w .build
-    rm -rf .build
+# Clean previous builds only if --clean flag is provided
+if [[ "$1" == "--clean" ]] || [[ "$2" == "--clean" ]]; then
+    echo "Cleaning previous builds..."
+    if [ -d ".build" ]; then
+        chmod -R u+w .build
+        rm -rf .build
+    fi
+    rm -rf "$APP_BUNDLE"
 fi
-rm -rf "$APP_BUNDLE"
 
 # Build using the build script
 chmod +x Scripts/build.sh

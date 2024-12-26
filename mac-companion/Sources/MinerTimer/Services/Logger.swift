@@ -2,52 +2,44 @@ import Foundation
 
 class Logger {
     static let shared = Logger()
-    private let dateFormatter: DateFormatter
-    private let serviceMode: Bool
-    private let logFile: URL?
-    private let errorFile: URL?
+    private let logFile: URL
+    private let fileHandle: FileHandle?
     
     private init() {
-        dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "MMM dd, yyyy 'at' h:mm:ss a"
-        serviceMode = CommandLine.arguments.contains("--service")
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let minerTimerDir = appSupport.appendingPathComponent("MinerTimer")
         
-        if serviceMode {
-            logFile = URL(fileURLWithPath: "/Users/Shared/minertimer/service.log")
-            errorFile = URL(fileURLWithPath: "/Users/Shared/minertimer/service.error.log")
-        } else {
-            logFile = nil
-            errorFile = nil
+        try? FileManager.default.createDirectory(at: minerTimerDir, withIntermediateDirectories: true)
+        
+        logFile = minerTimerDir.appendingPathComponent("minertimer.log")
+        
+        // Create file if it doesn't exist
+        if !FileManager.default.fileExists(atPath: logFile.path) {
+            FileManager.default.createFile(atPath: logFile.path, contents: nil)
         }
+        
+        // Open file handle for appending
+        fileHandle = try? FileHandle(forWritingTo: logFile)
+        fileHandle?.seekToEndOfFile()
     }
     
-    func log(_ message: String, isError: Bool = false) {
-        let timestamp = dateFormatter.string(from: Date())
+    deinit {
+        fileHandle?.closeFile()
+    }
+    
+    func log(_ message: String) {
+        let timestamp = ISO8601DateFormatter().string(from: Date())
         let logMessage = "[\(timestamp)] \(message)\n"
         
-        if serviceMode {
-            // Write to file in service mode
-            let fileURL = isError ? errorFile : logFile
-            if let fileURL = fileURL {
-                do {
-                    if let handle = try? FileHandle(forWritingTo: fileURL) {
-                        handle.seekToEndOfFile()
-                        handle.write(logMessage.data(using: .utf8)!)
-                        handle.closeFile()
-                    } else {
-                        try logMessage.write(to: fileURL, atomically: true, encoding: .utf8)
-                    }
-                } catch {
-                    print("Error writing to log file: \(error)")
-                }
-            }
-        } else {
-            // Print to console in GUI mode
-            print(logMessage, terminator: "")
+        print(logMessage, terminator: "")  // Console output
+        
+        // File output - append instead of atomic write
+        if let data = logMessage.data(using: .utf8) {
+            fileHandle?.write(data)
         }
     }
     
-    func error(_ message: String) {
-        log(message, isError: true)
+    func getLogPath() -> String {
+        return logFile.path
     }
 } 

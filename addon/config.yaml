@@ -12,4 +12,14 @@ arch:
 startup: application
 ingress: true
 panel_icon: mdi:timer
-panel_title: "MinerTimer" 
+panel_title: "MinerTimer"
+
+# Add OAuth configuration
+auth_provider:
+  type: oauth2
+  client_id: "https://github.com/kburbank/minertimer-ha"
+  client_secret: "minertimer_secret"
+  auth_uri: "http://homeassistant:8123/auth/authorize"
+  token_uri: "http://homeassistant:8123/auth/token"
+  redirect_uris:
+    - "http://100.83.79.7:8456/callback" 

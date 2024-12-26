@@ -1,4 +1,4 @@
-// swift-tools-version:5.5
+// swift-tools-version:5.7
 import PackageDescription
 
 let package = Package(
@@ -6,13 +6,15 @@ let package = Package(
     platforms: [
         .macOS(.v10_15)
     ],
-    products: [
-        .executable(name: "MinerTimer", targets: ["MinerTimer"])
+    dependencies: [
+        .package(url: "https://github.com/sroebert/mqtt-nio.git", from: "2.8.0")
     ],
     targets: [
         .executableTarget(
             name: "MinerTimer",
-            dependencies: [],
+            dependencies: [
+                .product(name: "MQTTNIO", package: "mqtt-nio")
+            ],
             exclude: [
                 "Legacy/extend_time.sh",
                 "Legacy/config2.sh",

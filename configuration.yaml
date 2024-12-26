@@ -12,3 +12,29 @@ minertimer:
       processes:
         - Roblox
         - Steam 
+
+http:
+  auth_providers:
+    - type: trusted_networks
+    - type: homeassistant
+  cors_allowed_origins:
+    - http://localhost:8456
+
+auth_providers:
+  - type: oauth2
+    clients:
+      - id: https://github.com/kburbank/minertimer-ha
+        name: MinerTimer
+        secret: minertimer_secret
+        redirect_uris:
+          - http://localhost:8456/callback 
+
+mqtt:
+  number:
+    - name: "Minecraft Time Limit"
+      unique_id: minecraft_time_limit
+      state_topic: "minertimer/time_limit/state"
+      command_topic: "minertimer/time_limit/set"
+      min: 0
+      max: 1440
+      unit_of_measurement: "minutes" 

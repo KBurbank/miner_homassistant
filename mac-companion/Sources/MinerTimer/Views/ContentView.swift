@@ -5,41 +5,35 @@ struct ContentView: View {
     
     var body: some View {
         VStack {
-            Text("MinerTimer")
-                .font(.title)
+            Text("Time Played: \(Int(processMonitor.playedTime)) minutes")
+                .padding()
             
-            Button("Test HA Connection") {
-                Task {
-                    do {
-                        let limit = try await processMonitor.getCurrentLimit()
-                        print("Got limit from HA: \(limit)")
-                    } catch {
-                        print("HA Error: \(error)")
+            Text("Time Limit: \(Int(processMonitor.currentLimit)) minutes")
+                .padding()
+            
+            if let process = processMonitor.monitoredProcess {
+                Text("Status: \(process.state.rawValue)")
+                    .padding()
+                
+                Button(action: {
+                    if process.state == .running {
+                        processMonitor.suspendProcess(process.pid)
+                    } else {
+                        processMonitor.resumeProcess(process.pid)
                     }
+                }) {
+                    Text(process.state == .running ? "Pause" : "Resume")
                 }
-            }
-            
-            Button("Simulate Process") {
-                Task {
-                    await processMonitor.simulateProcess()
-                }
+                .padding()
+            } else {
+                Text("No game running")
+                    .padding()
             }
             
             Button("Reset Time") {
                 processMonitor.resetTime()
             }
-            
-            // Debug info
-            Text("Debug Info:")
-                .font(.headline)
-                .padding(.top)
-            
-            Text("Played Time: \(processMonitor.playedTime)")
-            Text("Current Limit: \(processMonitor.currentLimit)")
-            if let process = processMonitor.monitoredProcess {
-                Text("Process: \(process.name) (\(process.state.rawValue))")
-            }
+            .padding()
         }
-        .padding()
     }
 } 
