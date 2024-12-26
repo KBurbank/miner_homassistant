@@ -6,6 +6,8 @@ import Logging
 class HomeAssistantClient {
     private var client: MQTTClient?
     private weak var monitor: ProcessMonitor?
+    private let discoveryPrefix = "homeassistant"
+    private let deviceId = "minertimer_mac"
     
     init() {
         setupMQTT()
@@ -13,6 +15,79 @@ class HomeAssistantClient {
     
     func setMonitor(_ monitor: ProcessMonitor) {
         self.monitor = monitor
+    }
+    
+    private func publishDiscoveryConfig() {
+        guard let client = client else { return }
+        
+        // Create discovery config for time limit number entity
+        let timeLimitConfig: [String: Any] = [
+            "name": "Minecraft Time Limit",
+            "unique_id": "minertimer_time_limit",
+            "state_topic": "minertimer/time_limit/state",
+            "command_topic": "minertimer/time_limit/set",
+            "unit_of_measurement": "minutes",
+            "min": 0,
+            "max": 1440,
+            "device": [
+                "identifiers": [deviceId],
+                "name": "MinerTimer Mac",
+                "model": "Mac Companion",
+                "manufacturer": "MinerTimer"
+            ]
+        ]
+        
+        // Convert config to JSON
+        if let jsonData = try? JSONSerialization.data(withJSONObject: timeLimitConfig),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            
+            // Publish discovery config
+            client.publish(
+                .string(jsonString),
+                to: "\(discoveryPrefix)/number/\(deviceId)/time_limit/config",
+                qos: .atLeastOnce,
+                retain: true
+            ).whenComplete { result in
+                switch result {
+                case .success:
+                    Logger.shared.log("✅ Published discovery config")
+                case .failure(let error):
+                    Logger.shared.log("❌ Failed to publish discovery config: \(error)")
+                }
+            }
+        }
+        
+        // Similarly for played time sensor
+        let playedTimeConfig: [String: Any] = [
+            "name": "Minecraft Played Time",
+            "unique_id": "minertimer_played_time",
+            "state_topic": "minertimer/played_time",
+            "unit_of_measurement": "minutes",
+            "device": [
+                "identifiers": [deviceId],
+                "name": "MinerTimer Mac",
+                "model": "Mac Companion",
+                "manufacturer": "MinerTimer"
+            ]
+        ]
+        
+        if let jsonData = try? JSONSerialization.data(withJSONObject: playedTimeConfig),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            
+            client.publish(
+                .string(jsonString),
+                to: "\(discoveryPrefix)/sensor/\(deviceId)/played_time/config",
+                qos: .atLeastOnce,
+                retain: true
+            ).whenComplete { result in
+                switch result {
+                case .success:
+                    Logger.shared.log("✅ Published played time discovery config")
+                case .failure(let error):
+                    Logger.shared.log("❌ Failed to publish played time discovery config: \(error)")
+                }
+            }
+        }
     }
     
     private func setupMQTT() {
@@ -41,6 +116,13 @@ class HomeAssistantClient {
             case .success:
                 Logger.shared.log("✅ Connected to MQTT broker")
                 self.subscribeToTopics(client)
+                self.publishDiscoveryConfig()  // Publish discovery config
+                
+                // Publish initial time limit
+                if let monitor = self.monitor {
+                    self.updateTimeLimit(monitor.currentLimit)
+                }
+                
             case .failure(let error):
                 Logger.shared.log("❌ Failed to connect to MQTT: \(error)")
             }

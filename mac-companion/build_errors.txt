@@ -3,9 +3,24 @@ Building for debugging...
 [1/4] Write swift-version--58304C5D6DBC2206.txt
 [3/6] Emitting module MinerTimer
 [4/6] Compiling MinerTimer HomeAssistantClient.swift
+/Users/kendra/Documents/code/miner/mac-companion/Sources/MinerTimer/Services/HomeAssistantClient.swift:123:50: warning: main actor-isolated property 'currentLimit' can not be referenced from a Sendable closure; this is an error in the Swift 6 language mode
+121 |                 // Publish initial time limit
+122 |                 if let monitor = self.monitor {
+123 |                     self.updateTimeLimit(monitor.currentLimit)
+    |                                                  `- warning: main actor-isolated property 'currentLimit' can not be referenced from a Sendable closure; this is an error in the Swift 6 language mode
+124 |                 }
+125 |                 
+
+/Users/kendra/Documents/code/miner/mac-companion/Sources/MinerTimer/Services/ProcessMonitor.swift:10:33: note: property declared here
+  8 |     @Published var monitoredProcess: GameProcess?
+  9 |     @Published var playedTime: TimeInterval = 0
+ 10 |     @Published private(set) var currentLimit: TimeInterval {
+    |                                 `- note: property declared here
+ 11 |         didSet {
+ 12 |             UserDefaults.standard.set(currentLimit, forKey: "currentTimeLimit")
 [4/7] Write Objects.LinkFileList
 [5/7] Linking MinerTimer
 [6/7] Applying MinerTimer
-Build complete! (2.71s)
+Build complete! (2.76s)
 Build successful!
 App bundle created at MinerTimer.app
