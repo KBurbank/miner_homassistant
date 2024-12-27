@@ -1,26 +1,19 @@
 Building for debugging...
 [0/4] Write sources
 [1/4] Write swift-version--58304C5D6DBC2206.txt
-[3/6] Emitting module MinerTimer
-[4/6] Compiling MinerTimer HomeAssistantClient.swift
-/Users/kendra/Documents/code/miner/mac-companion/Sources/MinerTimer/Services/HomeAssistantClient.swift:123:50: warning: main actor-isolated property 'currentLimit' can not be referenced from a Sendable closure; this is an error in the Swift 6 language mode
-121 |                 // Publish initial time limit
-122 |                 if let monitor = self.monitor {
-123 |                     self.updateTimeLimit(monitor.currentLimit)
-    |                                                  `- warning: main actor-isolated property 'currentLimit' can not be referenced from a Sendable closure; this is an error in the Swift 6 language mode
-124 |                 }
-125 |                 
-
-/Users/kendra/Documents/code/miner/mac-companion/Sources/MinerTimer/Services/ProcessMonitor.swift:10:33: note: property declared here
-  8 |     @Published var monitoredProcess: GameProcess?
-  9 |     @Published var playedTime: TimeInterval = 0
- 10 |     @Published private(set) var currentLimit: TimeInterval {
-    |                                 `- note: property declared here
- 11 |         didSet {
- 12 |             UserDefaults.standard.set(currentLimit, forKey: "currentTimeLimit")
-[4/7] Write Objects.LinkFileList
-[5/7] Linking MinerTimer
-[6/7] Applying MinerTimer
-Build complete! (2.76s)
+[3/7] Emitting module MinerTimer
+[4/7] Compiling MinerTimer StatusBarManager.swift
+/Users/kendra/Documents/code/miner/mac-companion/Sources/MinerTimer/Services/StatusBarManager.swift:219:73: warning: variable 'self' was written to, but never read
+217 |             
+218 |             // Reset after 3 seconds
+219 |             DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+    |                                                                         `- warning: variable 'self' was written to, but never read
+220 |                 Task { @MainActor in
+221 |                     button.title = title
+[5/7] Compiling MinerTimer KeychainManager.swift
+[5/8] Write Objects.LinkFileList
+[6/8] Linking MinerTimer
+[7/8] Applying MinerTimer
+Build complete! (3.18s)
 Build successful!
 App bundle created at MinerTimer.app

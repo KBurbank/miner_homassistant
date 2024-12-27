@@ -13,6 +13,8 @@ class ProcessMonitor: ObservableObject {
         }
     }
     
+    private var wasPaused = false
+    
     init(haClient: HomeAssistantClient?) {
         Logger.shared.log("ProcessMonitor: Initializing")
         
@@ -29,6 +31,11 @@ class ProcessMonitor: ObservableObject {
         if let state = PersistenceManager.shared.loadTimeState() {
             self.playedTime = state.playedTime
             Logger.shared.log("Loaded initial state: \(playedTime) minutes")
+        }
+        
+        // Check for processes immediately
+        Task { @MainActor in
+            self.checkProcesses()
         }
         
         startMonitoring()
@@ -53,6 +60,12 @@ class ProcessMonitor: ObservableObject {
     
     func startMonitoring() {
         Logger.shared.log("ProcessMonitor: Starting monitoring")
+        
+        // Check immediately again in case process started between init and here
+        Task { @MainActor in
+            self.checkProcesses()
+        }
+        
         Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.checkProcesses()
@@ -124,23 +137,40 @@ class ProcessMonitor: ObservableObject {
     }
     
     func suspendProcess(_ pid: Int32) {
-        Logger.shared.log("ProcessMonitor: Suspending process \(pid)")
+        if !wasPaused {  // Only announce first time
+            NotificationManager.shared.announceGamePaused()
+            wasPaused = true
+        }
+        
         kill(pid, SIGSTOP)
-        // Create new process instance with updated state
-        if var process = monitoredProcess {
-            process.state = .suspended
-            monitoredProcess = process
+        
+        // Update process state
+        if let process = monitoredProcess {
+            monitoredProcess = GameProcess(
+                pid: process.pid,
+                name: process.name,
+                state: .suspended,
+                startTime: process.startTime
+            )
         }
     }
     
     func resumeProcess(_ pid: Int32) {
-        Logger.shared.log("ProcessMonitor: Resuming process \(pid)")
         kill(pid, SIGCONT)
-        // Create new process instance with updated state
-        if var process = monitoredProcess {
-            process.state = .running
-            monitoredProcess = process
+        
+        // Update process state
+        if let process = monitoredProcess {
+            monitoredProcess = GameProcess(
+                pid: process.pid,
+                name: process.name,
+                state: .running,
+                startTime: process.startTime
+            )
         }
+        
+        let remainingMinutes = Int(ceil(currentLimit - playedTime))
+        NotificationManager.shared.announceGameResumed(remainingMinutes: remainingMinutes)
+        wasPaused = false
     }
     
     // Also save state when time is reset
