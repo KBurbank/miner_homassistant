@@ -38,10 +38,10 @@ class SettingsWindowController: NSWindowController {
     }
     
     @objc private func handlePasswordAction() {
-        if KeychainManager.shared.hasPassword() {
+        if PasswordStore.shared.hasPassword() {
             promptForPasswordChange()
         } else {
-            promptForNewPassword()  // Skip current password verification
+            promptForNewPassword()
         }
     }
     
@@ -61,7 +61,7 @@ class SettingsWindowController: NSWindowController {
                 Logger.shared.log("Attempting to verify password...")  // Add logging
                 
                 // Direct verification
-                if KeychainManager.shared.verifyPassword(currentPassword) {
+                if PasswordStore.shared.verifyPassword(currentPassword) {
                     Logger.shared.log("Password verified successfully")
                     self.promptForNewPassword()
                 } else {
@@ -78,7 +78,7 @@ class SettingsWindowController: NSWindowController {
     
     private func promptForNewPassword() {
         let alert = NSAlert()
-        alert.messageText = KeychainManager.shared.hasPassword() ? "Change Password" : "Set Password"
+        alert.messageText = PasswordStore.shared.hasPassword() ? "Change Password" : "Set Password"
         alert.informativeText = "Enter new password:"
         
         let stackView = NSStackView(frame: NSRect(x: 0, y: 0, width: 200, height: 54))
@@ -104,7 +104,7 @@ class SettingsWindowController: NSWindowController {
                     self.showError("Password cannot be empty")
                 } else if newPassword != confirmPassword {
                     self.showError("Passwords do not match")
-                } else if KeychainManager.shared.setPassword(newPassword) {
+                } else if PasswordStore.shared.setPassword(newPassword) {
                     let successAlert = NSAlert()
                     successAlert.messageText = "Success"
                     successAlert.informativeText = "Password set successfully"

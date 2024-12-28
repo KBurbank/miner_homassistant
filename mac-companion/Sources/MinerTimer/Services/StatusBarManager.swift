@@ -232,7 +232,7 @@ class StatusBarManager: NSObject {
         guard let minutes = sender.representedObject as? TimeInterval else { return }
         
         // If no password is set, add time directly
-        if !KeychainManager.shared.hasPassword() {
+        if !PasswordStore.shared.hasPassword() {
             monitor.addTime(minutes)
             updateMenu()  // Update menu after adding time
             return
@@ -254,7 +254,7 @@ class StatusBarManager: NSObject {
             if response == .alertFirstButtonReturn {  // OK button
                 let enteredPassword = input.stringValue
                 
-                if KeychainManager.shared.verifyPassword(enteredPassword) {
+                if PasswordStore.shared.verifyPassword(enteredPassword) {
                     self.monitor.addTime(minutes)
                     self.updateMenu()  // Update menu after adding time
                 } else {
@@ -286,7 +286,7 @@ class StatusBarManager: NSObject {
             if response == .alertFirstButtonReturn {
                 let currentPassword = input.stringValue
                 
-                if let correctPassword = KeychainManager.shared.getPassword(),
+                if let correctPassword = PasswordStore.shared.getPassword(),
                    currentPassword == correctPassword {
                     self.promptForNewPassword()
                 } else {
@@ -301,7 +301,7 @@ class StatusBarManager: NSObject {
     }
     
     @objc private func handlePasswordAction() {
-        if KeychainManager.shared.hasPassword() {
+        if PasswordStore.shared.hasPassword() {
             promptForPasswordChange()
         } else {
             promptForNewPassword()  // Skip current password verification
@@ -310,7 +310,7 @@ class StatusBarManager: NSObject {
     
     private func promptForNewPassword() {
         let alert = NSAlert()
-        alert.messageText = KeychainManager.shared.hasPassword() ? "Change Password" : "Set Password"
+        alert.messageText = PasswordStore.shared.hasPassword() ? "Change Password" : "Set Password"
         alert.informativeText = "Enter new password:"
         
         let stackView = NSStackView(frame: NSRect(x: 0, y: 0, width: 200, height: 54))
@@ -336,7 +336,7 @@ class StatusBarManager: NSObject {
                     self.showError("Password cannot be empty")
                 } else if newPassword != confirmPassword {
                     self.showError("Passwords do not match")
-                } else if KeychainManager.shared.setPassword(newPassword) {
+                } else if PasswordStore.shared.setPassword(newPassword) {
                     let successAlert = NSAlert()
                     successAlert.messageText = "Success"
                     successAlert.informativeText = "Password set successfully"
