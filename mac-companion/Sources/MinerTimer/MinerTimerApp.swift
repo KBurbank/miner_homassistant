@@ -7,6 +7,7 @@ class MinerTimerApp: NSObject, NSApplicationDelegate {
     private var haClient: HomeAssistantClient!
     private var processMonitor: ProcessMonitor!
     private var window: NSWindow?
+    private var settingsWindowController: SettingsWindowController?
     
     static func main() {
         let app = NSApplication.shared
@@ -43,7 +44,11 @@ class MinerTimerApp: NSObject, NSApplicationDelegate {
         
         appMenu.addItem(NSMenuItem(title: "About MinerTimer", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
         appMenu.addItem(NSMenuItem.separator())
-        appMenu.addItem(NSMenuItem(title: "Preferences...", action: #selector(showWindow), keyEquivalent: ","))
+        
+        let prefsItem = NSMenuItem(title: "Settings...", action: #selector(showSettings), keyEquivalent: ",")
+        prefsItem.target = self
+        appMenu.addItem(prefsItem)
+        
         appMenu.addItem(NSMenuItem.separator())
         appMenu.addItem(NSMenuItem(title: "Hide MinerTimer", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h"))
         
@@ -81,7 +86,19 @@ class MinerTimerApp: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
     
+    @objc private func showSettings() {
+        if settingsWindowController == nil {
+            settingsWindowController = SettingsWindowController()
+        }
+        settingsWindowController?.showWindow(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+    
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false  // Keep running when window is closed
+    }
+    
+    func settingsWindowWillClose() {
+        settingsWindowController = nil  // Clear the reference when window closes
     }
 } 

@@ -1,19 +1,13 @@
+[0/1] Planning build
 Building for debugging...
 [0/4] Write sources
 [1/4] Write swift-version--58304C5D6DBC2206.txt
-[3/7] Emitting module MinerTimer
-[4/7] Compiling MinerTimer StatusBarManager.swift
-/Users/kendra/Documents/code/miner/mac-companion/Sources/MinerTimer/Services/StatusBarManager.swift:219:73: warning: variable 'self' was written to, but never read
-217 |             
-218 |             // Reset after 3 seconds
-219 |             DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
-    |                                                                         `- warning: variable 'self' was written to, but never read
-220 |                 Task { @MainActor in
-221 |                     button.title = title
-[5/7] Compiling MinerTimer KeychainManager.swift
+[3/7] Compiling MinerTimer SettingsWindow.swift
+[4/7] Compiling MinerTimer MinerTimerApp.swift
+[5/7] Emitting module MinerTimer
 [5/8] Write Objects.LinkFileList
 [6/8] Linking MinerTimer
 [7/8] Applying MinerTimer
-Build complete! (3.18s)
+Build complete! (9.34s)
 Build successful!
 App bundle created at MinerTimer.app
