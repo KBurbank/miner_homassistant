@@ -1,8 +1,50 @@
+[0/1] Planning build
 Building for debugging...
 [0/5] Write sources
 [1/5] Write swift-version--58304C5D6DBC2206.txt
-[3/7] Emitting module MinerTimer
-[4/7] Compiling MinerTimer StatusBarManager.swift
+[3/19] Compiling MinerTimer MinerTimerApp.swift
+[4/19] Compiling MinerTimer HAConfig.swift
+[5/19] Compiling MinerTimer PasswordStore.swift
+[6/19] Compiling MinerTimer PersistenceManager.swift
+[7/19] Compiling MinerTimer ContentView.swift
+[8/19] Compiling MinerTimer Process.swift
+/Users/kendra/Documents/code/miner/mac-companion/Sources/MinerTimer/Services/HomeAssistantClient.swift:123:50: warning: main actor-isolated property 'currentLimit' can not be referenced from a Sendable closure; this is an error in the Swift 6 language mode
+121 |                 // Publish initial time limit
+122 |                 if let monitor = self.monitor {
+123 |                     self.updateTimeLimit(monitor.currentLimit)
+    |                                                  `- warning: main actor-isolated property 'currentLimit' can not be referenced from a Sendable closure; this is an error in the Swift 6 language mode
+124 |                 }
+125 |                 
+
+/Users/kendra/Documents/code/miner/mac-companion/Sources/MinerTimer/Services/ProcessMonitor.swift:10:33: note: property declared here
+  8 |     @Published var monitoredProcess: GameProcess?
+  9 |     @Published var playedTime: TimeInterval = 0
+ 10 |     @Published private(set) var currentLimit: TimeInterval {
+    |                                 `- note: property declared here
+ 11 |         didSet {
+ 12 |             UserDefaults.standard.set(currentLimit, forKey: "currentTimeLimit")
+[9/19] Compiling MinerTimer HomeAssistantClient.swift
+/Users/kendra/Documents/code/miner/mac-companion/Sources/MinerTimer/Services/HomeAssistantClient.swift:123:50: warning: main actor-isolated property 'currentLimit' can not be referenced from a Sendable closure; this is an error in the Swift 6 language mode
+121 |                 // Publish initial time limit
+122 |                 if let monitor = self.monitor {
+123 |                     self.updateTimeLimit(monitor.currentLimit)
+    |                                                  `- warning: main actor-isolated property 'currentLimit' can not be referenced from a Sendable closure; this is an error in the Swift 6 language mode
+124 |                 }
+125 |                 
+
+/Users/kendra/Documents/code/miner/mac-companion/Sources/MinerTimer/Services/ProcessMonitor.swift:10:33: note: property declared here
+  8 |     @Published var monitoredProcess: GameProcess?
+  9 |     @Published var playedTime: TimeInterval = 0
+ 10 |     @Published private(set) var currentLimit: TimeInterval {
+    |                                 `- note: property declared here
+ 11 |         didSet {
+ 12 |             UserDefaults.standard.set(currentLimit, forKey: "currentTimeLimit")
+[10/19] Compiling MinerTimer Logger.swift
+[11/19] Compiling MinerTimer NotificationManager.swift
+[12/19] Emitting module MinerTimer
+[13/19] Compiling MinerTimer AppDelegate.swift
+[14/19] Compiling MinerTimer URL+QueryParameters.swift
+[15/19] Compiling MinerTimer ProcessMonitor.swift
 /Users/kendra/Documents/code/miner/mac-companion/Sources/MinerTimer/Services/StatusBarManager.swift:184:73: warning: variable 'self' was written to, but never read
 182 |             
 183 |             // Reset after 3 seconds
@@ -10,10 +52,18 @@ Building for debugging...
     |                                                                         `- warning: variable 'self' was written to, but never read
 185 |                 Task { @MainActor in
 186 |                     button.title = title
-[5/8] Compiling MinerTimer MinerTimerApp.swift
-[5/8] Write Objects.LinkFileList
-[6/8] Linking MinerTimer
-[7/8] Applying MinerTimer
-Build complete! (4.11s)
+[16/19] Compiling MinerTimer StatusBarManager.swift
+/Users/kendra/Documents/code/miner/mac-companion/Sources/MinerTimer/Services/StatusBarManager.swift:184:73: warning: variable 'self' was written to, but never read
+182 |             
+183 |             // Reset after 3 seconds
+184 |             DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+    |                                                                         `- warning: variable 'self' was written to, but never read
+185 |                 Task { @MainActor in
+186 |                     button.title = title
+[17/20] Compiling MinerTimer SettingsWindow.swift
+[17/20] Write Objects.LinkFileList
+[18/20] Linking MinerTimer
+[19/20] Applying MinerTimer
+Build complete! (6.55s)
 Build successful!
 App bundle created at MinerTimer.app
