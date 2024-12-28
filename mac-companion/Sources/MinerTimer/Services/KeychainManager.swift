@@ -7,61 +7,71 @@ class KeychainManager {
     private let passwordKey = "com.minertimer.password"
     private let salt = "MinerTimer2024"
     
-    private init() {
-        // Check if we're running on Catalina or later
-        if #available(macOS 10.15, *) {
-            // We're good to use CryptoKit
-        } else {
-            Logger.shared.log("⚠️ Running on pre-Catalina, using fallback encryption")
-        }
-    }
+    private init() {}
     
     func hasPassword() -> Bool {
-        return getPassword() != nil
+        let has = getPassword() != nil
+        Logger.shared.log("🔐 Has password: \(has)")
+        return has
     }
     
     func getPassword() -> String? {
-        guard let encodedPassword = defaults.string(forKey: passwordKey) else {
-            Logger.shared.log("No password found in defaults")
+        guard let encrypted = defaults.string(forKey: passwordKey) else {
+            Logger.shared.log("🔐 No password found in defaults")
             return nil
         }
-        return decrypt(encodedPassword)
+        Logger.shared.log("🔐 Retrieved stored hash: \(encrypted)")
+        return encrypted
     }
     
     func setPassword(_ password: String) -> Bool {
-        let encoded = encrypt(password)
-        defaults.set(encoded, forKey: passwordKey)
-        return true
+        Logger.shared.log("🔑 === SETTING NEW PASSWORD ===")
+        let encrypted = encrypt(password)
+        Logger.shared.log("🔑 Generated hash: \(encrypted)")
+        defaults.set(encrypted, forKey: passwordKey)
+        defaults.synchronize()
+        
+        // Verify it was saved
+        if let saved = defaults.string(forKey: passwordKey) {
+            Logger.shared.log("🔑 Verified saved hash: \(saved)")
+            return true
+        } else {
+            Logger.shared.log("❌ Failed to save password!")
+            return false
+        }
     }
     
     private func encrypt(_ string: String) -> String {
-        if #available(macOS 10.15, *) {
-            let combined = string + salt
-            if let data = combined.data(using: .utf8) {
-                let hash = SHA256.hash(data: data)
-                return hash.compactMap { String(format: "%02x", $0) }.joined()
-            }
-        } else {
-            // Fallback for pre-Catalina: simple XOR with salt
-            let combined = string + salt
-            var result = ""
-            for (index, char) in combined.utf8.enumerated() {
-                let saltChar = salt.utf8[salt.utf8.index(salt.utf8.startIndex, offsetBy: index % salt.utf8.count)]
-                result += String(format: "%02x", char ^ saltChar)
-            }
-            return result
+        Logger.shared.log("🔒 === ENCRYPTING ===")
+        let combined = string + salt
+        if let data = combined.data(using: .utf8) {
+            let hash = SHA256.hash(data: data)
+            let hashString = hash.compactMap { String(format: "%02x", $0) }.joined()
+            Logger.shared.log("🔒 Generated hash: \(hashString)")
+            return hashString
         }
+        Logger.shared.log("❌ Failed to generate hash")
         return ""
     }
     
-    private func decrypt(_ encoded: String) -> String? {
-        // Since we're using a hash, we can't decrypt
-        // Instead, we'll store the hash and compare hashes
-        return encoded
-    }
-    
     func verifyPassword(_ input: String) -> Bool {
-        guard let stored = getPassword() else { return false }
-        return encrypt(input) == stored
+        Logger.shared.log("\n🔓 === VERIFYING PASSWORD ===")
+        
+        guard let storedHash = getPassword() else {
+            Logger.shared.log("🔓 No stored password found")
+            return false
+        }
+        Logger.shared.log("🔓 Retrieved stored hash: \(storedHash)")
+        
+        let inputHash = encrypt(input)
+        Logger.shared.log("🔓 Generated hash from input: \(inputHash)")
+        
+        let matches = inputHash == storedHash
+        Logger.shared.log("🔓 === COMPARISON ===")
+        Logger.shared.log("🔓 Stored:  \(storedHash)")
+        Logger.shared.log("🔓 Input:   \(inputHash)")
+        Logger.shared.log("🔓 Match:   \(matches)\n")
+        
+        return matches
     }
 } 

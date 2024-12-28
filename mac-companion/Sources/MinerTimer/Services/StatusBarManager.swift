@@ -124,74 +124,39 @@ class StatusBarManager: NSObject {
     private func setupMenu() {
         let menu = NSMenu()
         
-        // Time played
+        // Time played (not a submenu)
         let timePlayedItem = NSMenuItem(title: "Time played: 0 min", action: nil, keyEquivalent: "")
         menu.addItem(timePlayedItem)
         
-        // Time limit
+        // Time limit (not a submenu)
         let timeLimitItem = NSMenuItem(title: "Time limit: 0 min", action: nil, keyEquivalent: "")
         menu.addItem(timeLimitItem)
         
         menu.addItem(NSMenuItem.separator())
         
-        // Add time options
-        let addTimeItem = NSMenuItem(title: "Add Time", action: nil, keyEquivalent: "")
-        let addTimeSubmenu = NSMenu()
+        // Add Time submenu
+        let addTimeMenu = NSMenu()
+        let addTimeItem = NSMenuItem(title: "Add Time...", action: nil, keyEquivalent: "")
+        addTimeItem.submenu = addTimeMenu
         
-        // Add different time increments
-        [15, 30, 60].forEach { minutes in
-            let item = NSMenuItem(
-                title: "+\(minutes) minutes",
-                action: #selector(promptForPassword(_:)),
-                keyEquivalent: ""
-            )
+        // Add time options
+        let timeOptions = [15, 30, 60]
+        for minutes in timeOptions {
+            let item = NSMenuItem(title: "\(minutes) minutes", action: #selector(promptForPassword(_:)), keyEquivalent: "")
             item.target = self
-            item.isEnabled = true
-            item.representedObject = minutes
-            addTimeSubmenu.addItem(item)
+            item.representedObject = TimeInterval(minutes)
+            addTimeMenu.addItem(item)
         }
         
-        addTimeItem.submenu = addTimeSubmenu
+        // Custom time option
+        addTimeMenu.addItem(NSMenuItem.separator())
+        let customTimeItem = NSMenuItem(title: "Custom...", action: #selector(showAddTimeDialog), keyEquivalent: "")
+        customTimeItem.target = self
+        addTimeMenu.addItem(customTimeItem)
+        
         menu.addItem(addTimeItem)
         
-        menu.addItem(NSMenuItem.separator())
-        
-        // Add test alert button
-        let testAlertItem = NSMenuItem(
-            title: "Test 5-Minute Alert",
-            action: #selector(testFiveMinuteAlert),
-            keyEquivalent: ""
-        )
-        testAlertItem.target = self
-        menu.addItem(testAlertItem)
-        
-        // Add Password Management option
-        let passwordItem = NSMenuItem(
-            title: KeychainManager.shared.hasPassword() ? "Change Password" : "Set Password...",
-            action: #selector(handlePasswordAction),
-            keyEquivalent: ""
-        )
-        passwordItem.target = self
-        menu.addItem(passwordItem)
-        
-        menu.addItem(NSMenuItem.separator())
-        
-        // Add Quit option
-        let quitItem = NSMenuItem(
-            title: "Quit",
-            action: #selector(NSApplication.terminate(_:)),
-            keyEquivalent: "q"
-        )
-        menu.addItem(quitItem)
-        
         statusItem.menu = menu
-        
-        // Update menu periodically
-        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.updateMenu()
-            }
-        }
     }
     
     @objc private func testFiveMinuteAlert() {
@@ -393,5 +358,30 @@ class StatusBarManager: NSObject {
         alert.informativeText = message
         alert.alertStyle = .critical
         alert.runModal()
+    }
+    
+    @objc private func showAddTimeDialog() {
+        let alert = NSAlert()
+        alert.messageText = "Add Time"
+        alert.informativeText = "Enter minutes to add:"
+        
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 100, height: 24))
+        input.stringValue = "15"  // Default value
+        alert.accessoryView = input
+        alert.addButton(withTitle: "Add")
+        alert.addButton(withTitle: "Cancel")
+        
+        alert.beginSheetModal(for: NSApp.mainWindow ?? NSApp.windows.first!) { response in
+            if response == .alertFirstButtonReturn {
+                if let minutes = TimeInterval(input.stringValue) {
+                    self.monitor.addTime(minutes)
+                }
+            }
+        }
+    }
+    
+    @objc private func testAlert() {
+        Logger.shared.log("Testing alert...")
+        NotificationManager.shared.playFiveMinuteWarning(remainingMinutes: 5)
     }
 } 
