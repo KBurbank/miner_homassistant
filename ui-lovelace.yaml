@@ -1,0 +1,13 @@
+views:
+  - title: MinerTimer
+    cards:
+      - type: entities
+        title: Time Limits
+        entities:
+          - entity: input_number.kid1_limit
+          - entity: input_number.kid2_limit
+      - type: history-graph
+        title: Usage Today
+        entities:
+          - entity: sensor.kid1_played_time
+          - entity: sensor.kid2_played_time 
