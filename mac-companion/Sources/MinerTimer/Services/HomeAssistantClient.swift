@@ -151,15 +151,13 @@ public class HomeAssistantClient: @unchecked Sendable {
         // Parse payload
         guard let value = parsePayload(message.payload) else { return }
         
-        // Skip if this is our own published value
-        if lastPublishedValues[baseKey] == value {
-            return
-        }
-        
         // Only process messages from /set topic (user changes in HA)
         if !message.topic.hasSuffix("/set") {
             return
         }
+        
+        // For retained messages, we'll rely on the timestamp in the payload
+        // which is checked in parsePayload
         
         Logger.shared.log("Received user change from HA: \(message.topic) = \(value)")
         
@@ -194,37 +192,61 @@ public class HomeAssistantClient: @unchecked Sendable {
     }
     
     private func parsePayload(_ payload: MQTTPayload) -> Double? {
+        // Get string from payload
+        let str: String
         switch payload {
         case .bytes(let buffer):
-            let str = buffer.getString(at: buffer.readerIndex, length: buffer.readableBytes) ?? ""
-            if let parsed = Double(str) {
-                Logger.shared.log("Parsed bytes payload: \(str)")
-                return parsed
-            }
-        case .string(let str, _):
-            Logger.shared.log("Raw string payload: \(str)")
-            if let parsed = Double(str) {
-                return parsed
-            }
+            str = buffer.getString(at: buffer.readerIndex, length: buffer.readableBytes) ?? ""
+        case .string(let s, _):
+            str = s
         case .empty:
-            Logger.shared.log("Empty payload")
+            return nil
         }
-        Logger.shared.log("Failed to parse payload")
-        return nil
+        
+        // Try parsing as JSON first
+        if let data = str.data(using: .utf8),
+           let json = try? JSONDecoder().decode([String: Double].self, from: data),
+           let value = json["value"],
+           let timestamp = json["timestamp"] {
+            
+            // Check if message is from before midnight
+            var calendar = Calendar.current
+            calendar.timeZone = TimeZone.current
+            let midnight = calendar.startOfDay(for: Date())
+            let messageDate = Date(timeIntervalSince1970: timestamp)
+            
+            if messageDate < midnight {
+                Logger.shared.log("⏭️ Ignoring message from before midnight")
+                return nil
+            }
+            
+            return value
+        }
+        
+        // Fallback to direct number parsing
+        return Double(str)
     }
     
     private func publish(_ value: TimeInterval, to timeValue: TimeValue) {
         guard let client = client else { return }
         
         let publishTopic = timeValue.stateTopic
-        let message = String(format: "%.1f", value)
         
-        client.publish(
-            .string(message),
-            to: publishTopic,
-            qos: .atMostOnce,
-            retain: true
-        )
+        // Include timestamp in payload
+        let payload = [
+            "value": value,
+            "timestamp": Date().timeIntervalSince1970
+        ]
+        
+        if let jsonData = try? JSONEncoder().encode(payload),
+           let jsonString = String(data: jsonData, encoding: .utf8) {
+            client.publish(
+                .string(jsonString),
+                to: publishTopic,
+                qos: .atMostOnce,
+                retain: true
+            )
+        }
     }
     
     func publish_to_HA(_ timeValue: TimeValue) {

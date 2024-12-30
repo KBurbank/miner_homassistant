@@ -5,6 +5,13 @@ class Logger {
     private let logFile: URL
     private let fileHandle: FileHandle?
     
+    private lazy var dateFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        formatter.timeZone = TimeZone.current
+        return formatter
+    }()
+    
     private init() {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let minerTimerDir = appSupport.appendingPathComponent("MinerTimer")
@@ -28,12 +35,11 @@ class Logger {
     }
     
     func log(_ message: String) {
-        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let timestamp = dateFormatter.string(from: Date())
         let logMessage = "[\(timestamp)] \(message)\n"
         
         print(logMessage, terminator: "")  // Console output
         
-        // File output - append instead of atomic write
         if let data = logMessage.data(using: .utf8) {
             fileHandle?.write(data)
         }

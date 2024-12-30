@@ -7,6 +7,11 @@ private extension Calendar {
     }
 }
 
+private struct TimeValueData: Codable {
+    let value: TimeInterval
+    let lastUpdated: Date
+}
+
 public class TimeValue: Codable, Equatable, @unchecked Sendable, ObservableObject {
     @Published public internal(set) var value: TimeInterval
     var lastChanged: Date
@@ -55,18 +60,12 @@ public class TimeValue: Codable, Equatable, @unchecked Sendable, ObservableObjec
     
     @MainActor
     func saveToDefaults() {
-    //    Logger.shared.log("💾 Attempting to save TimeValue")
-    //    Logger.shared.log("💾 Base key: \(baseKey ?? "nil")")
-    //    Logger.shared.log("💾 Defaults key: \(userDefaultsKey ?? "nil")")
-        
-        try? userDefaultsKey.map { key in
+        guard let key = baseKey else { return }
+        let data = TimeValueData(value: value, lastUpdated: Date())
+        if let encoded = try? JSONEncoder().encode(data) {
+            UserDefaults.standard.set(encoded, forKey: key)
             Logger.shared.log("💾 Saving value: \(value) with key: \(key)")
-            try UserDefaults.standard.setCodable(self, forKey: key)
             Logger.shared.log("💾 Save successful")
-        }
-        
-        if userDefaultsKey == nil {
-            Logger.shared.log("⚠️ Failed to save - no defaults key available")
         }
     }
     
@@ -135,6 +134,31 @@ public class TimeValue: Codable, Equatable, @unchecked Sendable, ObservableObjec
         update(value: value)
         updatingFromMQTT = false
     }
+    
+    private func loadSavedValue() -> TimeInterval {
+        Logger.shared.log("🔨 Attempting to load saved value")
+        if let data = UserDefaults.standard.data(forKey: baseKey ?? ""),
+           let savedValue = try? JSONDecoder().decode(TimeValueData.self, from: data) {
+            
+            // For played_time, check if we crossed midnight
+            if baseKey == "played_time" {
+                var calendar = Calendar.current
+                calendar.timeZone = TimeZone.current
+                let midnight = calendar.startOfDay(for: Date())
+                
+                if savedValue.lastUpdated < midnight {
+                    Logger.shared.log("🔄 Saved played_time is from before midnight, resetting to 0")
+                    return 0
+                }
+            }
+            
+            Logger.shared.log("🔨 Found saved value: \(savedValue.value)")
+            return savedValue.value
+        }
+        
+        Logger.shared.log("🔨 No saved value found")
+        return 0
+    }
 }
 
 public enum TimeValueKind: CaseIterable {
@@ -177,17 +201,18 @@ extension TimeValue {
         let lastCloseKey = "com.minertimer.lastCloseTime"
         
         if let lastClose = defaults.object(forKey: lastCloseKey) as? Date {
-            // Get midnight of today
-            let calendar = Calendar.current
+            // Get midnight of today in local time zone
+            var calendar = Calendar.current
+            calendar.timeZone = TimeZone.current
             let midnight = calendar.startOfDay(for: Date())
             
             // Only update current limit if last close was before midnight
             if lastClose < midnight {
-                Logger.shared.log("🔄 Last close was before midnight, updating current limit")
+                Logger.shared.log("🔄 Last close was before midnight (local time), updating current limit")
                 let baseValue = calendar.isWeekend(Date()) ? weekend.value : weekday.value
                 current.update(value: baseValue)
             } else {
-                Logger.shared.log("✋ Last close was today, keeping current limit")
+                Logger.shared.log("✋ Last close was today (after local midnight), keeping current limit")
             }
         } else {
             Logger.shared.log("🆕 No last close time found, setting initial current limit")

@@ -38,6 +38,18 @@ class TimeScheduler: ObservableObject {
 
     @MainActor
     private func updatePlayedTime() {
+        // Check if we've crossed midnight since last update
+        var calendar = Calendar.current
+        calendar.timeZone = TimeZone.current
+        let midnight = calendar.startOfDay(for: Date())
+        
+        if lastCheck < midnight {
+            Logger.shared.log("🔄 Crossed midnight, resetting played time")
+            playedTime.update(value: 0)
+            lastCheck = Date()
+            return
+        }
+        
         let elapsed = Date().timeIntervalSince(lastCheck)
         playedTime.update(value: playedTime.value + (elapsed / 60))
         lastCheck = Date()
