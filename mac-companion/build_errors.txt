@@ -3,13 +3,9 @@ Building for debugging...
 [1/4] Write swift-version--58304C5D6DBC2206.txt
 [3/6] Emitting module MinerTimer
 [4/6] Compiling MinerTimer HomeAssistantClient.swift
-[5/10] Compiling MinerTimer TimeIntervalKind.swift
-[6/10] Compiling MinerTimer AppDelegate.swift
-[7/10] Compiling MinerTimer MinerTimerApp.swift
-[8/10] Compiling MinerTimer StatusBarManager.swift
-[8/11] Write Objects.LinkFileList
-[9/11] Linking MinerTimer
-[10/11] Applying MinerTimer
-Build complete! (3.45s)
+[4/7] Write Objects.LinkFileList
+[5/7] Linking MinerTimer
+[6/7] Applying MinerTimer
+Build complete! (2.67s)
 Build successful!
 App bundle created at MinerTimer.app

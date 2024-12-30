@@ -116,7 +116,7 @@ public class HomeAssistantClient: @unchecked Sendable {
                     config["command_topic"] = timeValue.setTopic
                     config["min"] = min ?? 0
                     config["max"] = max ?? 1440
-                    config["optimistic"] = false
+                    config["optimistic"] = true
                 }
             }
             
@@ -125,7 +125,8 @@ public class HomeAssistantClient: @unchecked Sendable {
                 client.publish(
                     .string(jsonString),
                     to: "\(discoveryPrefix)/\(type)/\(deviceId)/\(timeValue.mqttTopic)/config",
-                    qos: .atLeastOnce
+                    qos: .atLeastOnce,
+                    retain: false
                 )
             }
         }
@@ -147,35 +148,20 @@ public class HomeAssistantClient: @unchecked Sendable {
         // Skip played_time silently
         if baseKey == "played_time" { return }
         
-        // Special logging for time_limit/set
-        if message.topic == "minertimer/time_limit/set" {
-            Logger.shared.log("\n=== Time Limit Set Message ===")
-            Logger.shared.log("Topic: \(message.topic)")
-            Logger.shared.log("Raw payload: \(message.payload)")
-            if case .bytes(let buffer) = message.payload {
-                Logger.shared.log("Bytes content: \(String(buffer: buffer))")
-            }
-            if case .string(let str, _) = message.payload {
-                Logger.shared.log("String content: \(str)")
-            }
-            Logger.shared.log("Last published value: \(lastPublishedValues[baseKey] ?? -1)")
-            Logger.shared.log("Current TimeScheduler value: \(timeScheduler?.currentLimit.value ?? -1)")
-            Logger.shared.log("QoS: \(message.qos)")
-            Logger.shared.log("Retain flag: \(message.retain)")
-            Logger.shared.log("=== End Time Limit Message ===\n")
-        } else {
-            Logger.shared.log("\n=== Handling MQTT Message ===")
-            Logger.shared.log("Topic: \(message.topic)")
-        }
-        
         // Parse payload
         guard let value = parsePayload(message.payload) else { return }
         
         // Skip if this is our own published value
         if lastPublishedValues[baseKey] == value {
-            Logger.shared.log("Skipping our own published value for \(baseKey)")
             return
         }
+        
+        // Only process messages from /set topic (user changes in HA)
+        if !message.topic.hasSuffix("/set") {
+            return
+        }
+        
+        Logger.shared.log("Received user change from HA: \(message.topic) = \(value)")
         
         // Find matching kind from baseKey
         guard let kind = TimeValueKind.allCases.first(where: { 
@@ -228,36 +214,17 @@ public class HomeAssistantClient: @unchecked Sendable {
     }
     
     private func publish(_ value: TimeInterval, to timeValue: TimeValue) {
-        guard let client = client else {
-            Logger.shared.log("❌ MQTT client not initialized")
-            return
-        }
-        
-        // Record what we're publishing
-        lastPublishedValues[timeValue.baseKey ?? ""] = value
+        guard let client = client else { return }
         
         let publishTopic = timeValue.stateTopic
         let message = String(format: "%.1f", value)
-        Logger.shared.log("\n=== Publishing Message ===")
-        Logger.shared.log("Topic: \(publishTopic)")
-        Logger.shared.log("Value: \(message)")
-        Logger.shared.log("Previous value: \(lastPublishedValues[timeValue.baseKey ?? ""] ?? -1)")
-        Logger.shared.log("TimeValue name: \(timeValue.name)")
-        Logger.shared.log("=== End Publishing ===\n")
         
         client.publish(
             .string(message),
             to: publishTopic,
             qos: .atMostOnce,
             retain: true
-        ).whenComplete { result in
-            switch result {
-            case .success:
-                Logger.shared.log("✅ Published to \(timeValue.mqttTopic)")
-            case .failure(let error):
-                Logger.shared.log("❌ Failed to publish to \(timeValue.mqttTopic): \(error)")
-            }
-        }
+        )
     }
     
     func publish_to_HA(_ timeValue: TimeValue) {
