@@ -48,7 +48,6 @@ class StatusBarManager: NSObject {
                 
                 let current = self.timeScheduler.currentLimit
                 var menuTitle = "Current Limit: \(Int(value)) min"
-                menuTitle += " (changed \(self.relativeDateFormatter.string(for: current.lastChanged) ?? ""))"
                 let remainingTime = value - self.timeScheduler.playedTime.value
                 self.updateMenuItemColor(timeLimitItem, title: menuTitle, remainingTime: remainingTime)
             }

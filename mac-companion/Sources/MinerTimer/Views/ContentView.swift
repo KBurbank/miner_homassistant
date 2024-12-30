@@ -43,10 +43,6 @@ struct TimeDisplay: View {
         HStack {
             Text("\(name):")
             Text("\(Int(timeValue.value)) min")
-            if let relativeDate = relativeDateFormatter.string(for: timeValue.lastChanged) {
-                Text("(changed \(relativeDate))")
-                    .foregroundColor(.secondary)
-            }
         }
     }
 }
