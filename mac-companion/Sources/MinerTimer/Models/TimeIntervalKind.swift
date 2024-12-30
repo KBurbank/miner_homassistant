@@ -55,9 +55,9 @@ public class TimeValue: Codable, Equatable, @unchecked Sendable, ObservableObjec
     
     @MainActor
     func saveToDefaults() {
-        Logger.shared.log("💾 Attempting to save TimeValue")
-        Logger.shared.log("💾 Base key: \(baseKey ?? "nil")")
-        Logger.shared.log("💾 Defaults key: \(userDefaultsKey ?? "nil")")
+    //    Logger.shared.log("💾 Attempting to save TimeValue")
+    //    Logger.shared.log("💾 Base key: \(baseKey ?? "nil")")
+    //    Logger.shared.log("💾 Defaults key: \(userDefaultsKey ?? "nil")")
         
         try? userDefaultsKey.map { key in
             Logger.shared.log("💾 Saving value: \(value) with key: \(key)")
@@ -129,9 +129,9 @@ public class TimeValue: Codable, Equatable, @unchecked Sendable, ObservableObjec
     @MainActor
     func updateFromMQTT(value: TimeInterval) {
         updatingFromMQTT = true
-        Logger.shared.log("📝 Updating TimeValue from MQTT")
-        Logger.shared.log("📝 Old value: \(self.value)")
-        Logger.shared.log("📝 New value: \(value)")
+    //    Logger.shared.log("📝 Updating TimeValue from MQTT")
+    //    Logger.shared.log("📝 Old value: \(self.value)")
+    //    Logger.shared.log("📝 New value: \(value)")
         update(value: value)
         updatingFromMQTT = false
     }

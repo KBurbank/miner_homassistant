@@ -12,7 +12,7 @@ class TimeScheduler: ObservableObject {
     
     static let shared = TimeScheduler()
     
-    private init() {
+    init() {
         self.playedTime = TimeValue.create(kind: .played)
         self.lastCheck = Date()
         (self.currentLimit, self.weekdayLimit, self.weekendLimit) = TimeValue.createTimeLimits()

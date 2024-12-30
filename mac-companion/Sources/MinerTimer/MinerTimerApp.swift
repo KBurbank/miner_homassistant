@@ -3,15 +3,20 @@ import Cocoa
 
 @main
 class MinerTimerApp: NSObject, NSApplicationDelegate {
+    static var shared: MinerTimerApp!
     private var statusBar: StatusBarManager!
     private var haClient: HomeAssistantClient!
-    private var processMonitor: ProcessMonitor!
+    public private(set) var processMonitor: ProcessMonitor!
     private var window: NSWindow?
     private var settingsWindowController: SettingsWindowController?
+    private var timeScheduler: TimeScheduler!
+    private let defaults = UserDefaults.standard
+    private let lastCloseKey = "com.minertimer.lastCloseTime"
     
     static func main() {
         let app = NSApplication.shared
         let delegate = MinerTimerApp()
+        shared = delegate  // Set shared instance
         app.delegate = delegate
         
         app.setActivationPolicy(.regular)
@@ -21,11 +26,24 @@ class MinerTimerApp: NSObject, NSApplicationDelegate {
     }
     
     func applicationDidFinishLaunching(_ notification: Notification) {
-        setupMenu()
+        // Log last close time if available
+        if let lastClose = defaults.object(forKey: lastCloseKey) as? Date {
+            Logger.shared.log("💡 Last app close: \(lastClose)")
+        } else {
+            Logger.shared.log("💡 No previous close time found")
+        }
         
-        // Initialize MQTT client
-        haClient = HomeAssistantClient()
-        processMonitor = ProcessMonitor(haClient: haClient)
+        // Initialize in correct order
+        processMonitor = ProcessMonitor()
+        timeScheduler = TimeScheduler.shared
+        haClient = HomeAssistantClient.shared
+        
+        // Setup connections after initialization
+        haClient.setMonitor(processMonitor)
+        haClient.setTimeScheduler()
+        
+        // Setup main menu
+        setupMainMenu()
         
         // Initialize status bar
         statusBar = StatusBarManager(monitor: processMonitor)
@@ -34,36 +52,11 @@ class MinerTimerApp: NSObject, NSApplicationDelegate {
         showWindow()
     }
     
-    private func setupMenu() {
-        let mainMenu = NSMenu()
-        
-        // Application Menu
-        let appMenu = NSMenu()
-        let appMenuItem = NSMenuItem()
-        appMenuItem.submenu = appMenu
-        
-        appMenu.addItem(NSMenuItem(title: "About MinerTimer", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
-        appMenu.addItem(NSMenuItem.separator())
-        
-        let prefsItem = NSMenuItem(title: "Settings...", action: #selector(showSettings), keyEquivalent: ",")
-        prefsItem.target = self
-        appMenu.addItem(prefsItem)
-        
-        appMenu.addItem(NSMenuItem.separator())
-        appMenu.addItem(NSMenuItem(title: "Hide MinerTimer", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h"))
-        
-        let hideOthersItem = NSMenuItem(title: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
-        hideOthersItem.keyEquivalentModifierMask = [.command, .option]
-        appMenu.addItem(hideOthersItem)
-        
-        appMenu.addItem(NSMenuItem(title: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: ""))
-        appMenu.addItem(NSMenuItem.separator())
-        appMenu.addItem(NSMenuItem(title: "Quit MinerTimer", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
-        
-        // Add menus to the main menu
-        mainMenu.addItem(appMenuItem)
-        
-        NSApplication.shared.mainMenu = mainMenu
+    func applicationWillTerminate(_ notification: Notification) {
+        // Save close time
+        defaults.set(Date(), forKey: lastCloseKey)
+        defaults.synchronize()
+        Logger.shared.log("👋 Saving app close time")
     }
     
     private func setupWindow() {
@@ -78,7 +71,9 @@ class MinerTimerApp: NSObject, NSApplicationDelegate {
         window?.center()
         
         // Create content view with process monitor
-        window?.contentView = NSHostingView(rootView: ContentView(processMonitor: processMonitor))
+        window?.contentView = NSHostingView(rootView: ContentView(
+            processMonitor: processMonitor
+        ))
     }
     
     @objc func showWindow() {
@@ -86,7 +81,7 @@ class MinerTimerApp: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
     
-    @objc private func showSettings() {
+    @objc public func showSettings() {
         if settingsWindowController == nil {
             settingsWindowController = SettingsWindowController()
         }
@@ -98,7 +93,42 @@ class MinerTimerApp: NSObject, NSApplicationDelegate {
         return false  // Keep running when window is closed
     }
     
-    func settingsWindowWillClose() {
-        settingsWindowController = nil  // Clear the reference when window closes
+    private func setupMainMenu() {
+        let mainMenu = NSMenu()
+        
+        // Application Menu
+        let appMenu = NSMenu()
+        let appName = ProcessInfo.processInfo.processName
+        appMenu.addItem(NSMenuItem(title: "About \(appName)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: ""))
+        appMenu.addItem(NSMenuItem.separator())
+        appMenu.addItem(NSMenuItem(title: "Preferences...", action: #selector(showSettings), keyEquivalent: ","))
+        appMenu.addItem(NSMenuItem.separator())
+        appMenu.addItem(NSMenuItem(title: "Hide \(appName)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h"))
+        
+        // Create Hide Others item with modifiers
+        let hideOthersItem = NSMenuItem(title: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
+        hideOthersItem.keyEquivalentModifierMask = [.command, .option]
+        appMenu.addItem(hideOthersItem)
+        
+        appMenu.addItem(NSMenuItem(title: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: ""))
+        appMenu.addItem(NSMenuItem.separator())
+        appMenu.addItem(NSMenuItem(title: "Quit \(appName)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        
+        let appMenuItem = NSMenuItem()
+        appMenuItem.submenu = appMenu
+        mainMenu.addItem(appMenuItem)
+        
+        // Window Menu
+        let windowMenu = NSMenu(title: "Window")
+        windowMenu.addItem(NSMenuItem(title: "Minimize", action: #selector(NSWindow.miniaturize(_:)), keyEquivalent: "m"))
+        windowMenu.addItem(NSMenuItem(title: "Zoom", action: #selector(NSWindow.zoom(_:)), keyEquivalent: ""))
+        windowMenu.addItem(NSMenuItem.separator())
+        windowMenu.addItem(NSMenuItem(title: "Show Main Window", action: #selector(showWindow), keyEquivalent: "1"))
+        
+        let windowMenuItem = NSMenuItem()
+        windowMenuItem.submenu = windowMenu
+        mainMenu.addItem(windowMenuItem)
+        
+        NSApplication.shared.mainMenu = mainMenu
     }
 } 

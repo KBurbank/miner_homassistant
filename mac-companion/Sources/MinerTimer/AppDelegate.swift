@@ -2,22 +2,26 @@ import AppKit
 import SwiftUI
 
 @MainActor
+@available(macOS 10.15, *)
 class AppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow!
     private var processMonitor: ProcessMonitor!
-    private let haClient = HomeAssistantClient()  // Create MQTT client
+    private var timeScheduler: TimeScheduler!
+    private let haClient = HomeAssistantClient.shared
+    private var statusBar: StatusBarManager!
     
     override init() {
         super.init()
-        Task {
-            self.processMonitor = ProcessMonitor(haClient: haClient)
-        }
+        processMonitor = ProcessMonitor()
+        timeScheduler = TimeScheduler.shared
+        haClient.setMonitor(processMonitor)
+        haClient.setTimeScheduler()
+        statusBar = StatusBarManager()
     }
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         Logger.shared.log("Application did finish launching")
         
-        // Create and show main window immediately
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 300, height: 400),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -28,8 +32,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.title = "MinerTimer"
         window.center()
         
-        // Create content view with process monitor
-        window.contentView = NSHostingView(rootView: ContentView(processMonitor: processMonitor))
+        window.contentView = NSHostingView(rootView: ContentView(
+            processMonitor: processMonitor
+        ))
         window.makeKeyAndOrderFront(nil)
     }
     

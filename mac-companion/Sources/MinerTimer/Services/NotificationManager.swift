@@ -95,4 +95,38 @@ class NotificationManager {
             Logger.shared.log("Announcing game resumed with \(remainingMinutes) minutes")
         }
     }
+    
+    func playTimeUpSound() {
+        // Play system sound
+        if let sound = sound {
+            sound.stop()
+            sound.play()
+        }
+        
+        // Speak warning
+        let process = Process()
+        process.launchPath = "/usr/bin/say"
+        process.arguments = ["Time's up! Game paused."]
+        try? process.run()
+        
+        // Show notification if we have permission
+        if hasPermission {
+            let content = UNMutableNotificationContent()
+            content.title = "Time's Up!"
+            content.body = "Game has been paused"
+            content.sound = .default
+            
+            let request = UNNotificationRequest(
+                identifier: UUID().uuidString,
+                content: content,
+                trigger: nil
+            )
+            
+            UNUserNotificationCenter.current().add(request) { error in
+                if let error = error {
+                    Logger.shared.log("❌ Failed to show notification: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
 } 

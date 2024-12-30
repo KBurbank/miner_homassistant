@@ -1,93 +1,102 @@
 import Foundation
 
+// This is the class that monitors the process (e.g. Minecraft)
+
 @MainActor
-class ProcessMonitor: ObservableObject {
-    private var timer: Timer?
-    private var haClient: HomeAssistantClient?
-    
-    @Published var monitoredProcess: GameProcess?
-    @Published var playedTime: TimeInterval = 0
-    @Published private(set) var currentLimit: TimeInterval {
-        didSet {
-            UserDefaults.standard.set(currentLimit, forKey: "currentTimeLimit")
+public class ProcessMonitor: ObservableObject {
+    public struct MonitoredProcess {
+        let pid: pid_t
+        let name: String
+        let startTime: Date
+        let state: ProcessState
+        
+        public enum ProcessState: String {
+            case running
+            case suspended
         }
     }
     
-    private var wasPaused = false
+    @Published private(set) var monitoredProcess: MonitoredProcess?
+    @Published private(set) var playedTime: TimeValue
+    @Published public var timeLimit: (current: TimeLimits, weekday: TimeLimits, weekend: TimeLimits)
+    @Published private(set) var timeScheduler: TimeScheduler
     
-    init(haClient: HomeAssistantClient?) {
-        Logger.shared.log("ProcessMonitor: Initializing")
-        
-        // Load saved limit first
-        let savedLimit = UserDefaults.standard.double(forKey: "currentTimeLimit")
-        self.currentLimit = savedLimit > 0 ? savedLimit : 60
-        Logger.shared.log("Loaded saved time limit: \(currentLimit) minutes")
-        
-        // Set up HA client
-        self.haClient = haClient
-        haClient?.setMonitor(self)  // Set ourselves as the monitor
-        
-        // Load saved state
-        if let state = PersistenceManager.shared.loadTimeState() {
-            self.playedTime = state.playedTime
-            Logger.shared.log("Loaded initial state: \(playedTime) minutes")
-        }
-        
-        // Check for processes immediately
-        Task { @MainActor in
-            self.checkProcesses()
-        }
-        
-        startMonitoring()
+
+    private var lastCheck = Date()
+    
+    init() {
+        self.playedTime = TimeValue.create(kind: .played)
+        let (current, weekday, weekend) = TimeLimits.create()
+        self.timeLimit = (current, weekday, weekend)
+        self.timeScheduler = TimeScheduler.shared
     }
     
-    func setHAClient(_ client: HomeAssistantClient) {
-        Logger.shared.log("Setting HA client in ProcessMonitor")
-        self.haClient = client
+    func updatePlayedTime(playedTime: TimeValue) {
+        // Update played time
+        let now = Date()
+        if let process = monitoredProcess, process.state == .running {
+            let elapsed = now.timeIntervalSince(lastCheck)
+            playedTime.value += elapsed
+            
+            // Update Home Assistant
+
+        }
+        lastCheck = now
+ 
+        // Check if we need to suspend
+        checkLimits()
     }
     
     private func checkLimits() {
         if let process = monitoredProcess {
-            if playedTime >= currentLimit && process.state == .running {
-                Logger.shared.log("ProcessMonitor: Time limit reached, suspending process")
+            if case .current(let currentValue) = timeLimit.current,
+               playedTime.value >= currentValue.value && process.state == .running {
+                Logger.shared.log("Time limit reached (\(Int(playedTime.value)) >= \(Int(currentValue.value)))")
                 suspendProcess(process.pid)
-            } else if playedTime < currentLimit && process.state == .suspended {
-                Logger.shared.log("ProcessMonitor: Time available, resuming process")
-                resumeProcess(process.pid)
+                NotificationManager.shared.playTimeUpSound()
             }
         }
     }
     
-    func startMonitoring() {
-        Logger.shared.log("ProcessMonitor: Starting monitoring")
+    public func addTime(_ minutes: TimeInterval) {
+        if case .current(let currentValue) = timeLimit.current {
+            Logger.shared.log("Adding \(minutes) minutes to current limit (\(currentValue.value))")
+            currentValue.update(value: currentValue.value + minutes)
+        }
+    }
+    
+    public func resetTime() {
+        Logger.shared.log("Resetting played time to 0")
+        playedTime.update(value: 0)
+    }
+    
+    public func simulateMidnight() {
+        Logger.shared.log("Simulating midnight reset")
+        resetForNewDay()
+    }
+    
+    public func resetForNewDay() {
+        Logger.shared.log("Resetting limits for new day")
         
-        // Check immediately again in case process started between init and here
-        Task { @MainActor in
-            self.checkProcesses()
+        // Get base value from current day type
+        let baseValue = if case .weekday(let value) = timeLimit.weekday {
+            value.value
+        } else if case .weekend(let value) = timeLimit.weekend {
+            value.value
+        } else {
+            60.0 // Default value
         }
         
-        Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.checkProcesses()
-                
-                // Update time if process is running
-                if let process = self?.monitoredProcess {
-                    if process.state == .running {
-                        self?.playedTime += 0.25 // Add 15 seconds
-                        
-                        // Save state
-                        if let playedTime = self?.playedTime {
-                            PersistenceManager.shared.saveTimeState(playedTime: playedTime)
-                            
-                            // Report to HA
-                            self?.haClient?.updatePlayedTime(playedTime)
-                        }
-                    }
-                    
-                    // Check limits
-                    self?.checkLimits()
-                }
-            }
+        if case .current(let currentValue) = timeLimit.current {
+            Logger.shared.log("Updating current limit to: \(baseValue)")
+            currentValue.update(value: baseValue)
+        }
+    }
+    
+    public func requestMoreTime() {
+        Logger.shared.log("Requesting more time")
+        if case .current(let currentValue) = timeLimit.current {
+            currentValue.update(value: currentValue.value + 30)
         }
     }
     
@@ -105,7 +114,6 @@ class ProcessMonitor: ObservableObject {
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             if let output = String(data: data, encoding: .utf8) {
                 Logger.shared.log("ProcessMonitor: Found processes: \(output)")
-                // Process the output to find Minecraft
                 if !output.isEmpty {
                     let lines = output.components(separatedBy: .newlines)
                     if let firstLine = lines.first,
@@ -116,11 +124,11 @@ class ProcessMonitor: ObservableObject {
                             Logger.shared.log("ProcessMonitor: Found existing process (PID: \(pid), State: \(existing.state.rawValue))")
                         } else {
                             // Only create new process if it's a different one
-                            let process = GameProcess(
+                            let process = MonitoredProcess(
                                 pid: pid,
                                 name: "Minecraft",
-                                state: .running,
-                                startTime: Date()
+                                startTime: Date(),
+                                state: .running
                             )
                             monitoredProcess = process
                             Logger.shared.log("ProcessMonitor: Found new Minecraft process (PID: \(pid))")
@@ -137,20 +145,15 @@ class ProcessMonitor: ObservableObject {
     }
     
     func suspendProcess(_ pid: Int32) {
-        if !wasPaused {  // Only announce first time
-            NotificationManager.shared.announceGamePaused()
-            wasPaused = true
-        }
-        
         kill(pid, SIGSTOP)
         
         // Update process state
         if let process = monitoredProcess {
-            monitoredProcess = GameProcess(
+            monitoredProcess = MonitoredProcess(
                 pid: process.pid,
                 name: process.name,
-                state: .suspended,
-                startTime: process.startTime
+                startTime: process.startTime,
+                state: .suspended
             )
         }
     }
@@ -160,56 +163,12 @@ class ProcessMonitor: ObservableObject {
         
         // Update process state
         if let process = monitoredProcess {
-            monitoredProcess = GameProcess(
+            monitoredProcess = MonitoredProcess(
                 pid: process.pid,
                 name: process.name,
-                state: .running,
-                startTime: process.startTime
+                startTime: process.startTime,
+                state: .running
             )
         }
-        
-        let remainingMinutes = Int(ceil(currentLimit - playedTime))
-        NotificationManager.shared.announceGameResumed(remainingMinutes: remainingMinutes)
-        wasPaused = false
-    }
-    
-    // Also save state when time is reset
-    func resetTime() {
-        playedTime = 0
-        PersistenceManager.shared.saveTimeState(playedTime: 0)
-    }
-    
-    func simulateProcess() async {
-        // Make it actually async by adding a delay
-        try? await Task.sleep(nanoseconds: 1_000_000) // 1ms delay
-        // Rest of simulation code
-    }
-    
-    enum ProcessError: LocalizedError {
-        case noHAClient
-        
-        var errorDescription: String? {
-            switch self {
-            case .noHAClient:
-                return "Home Assistant client not initialized"
-            }
-        }
-    }
-    
-    @MainActor
-    func addTime(_ minutes: TimeInterval) {
-        let newLimit = currentLimit + minutes
-        updateTimeLimit(newLimit)
-        
-        // Update HA
-        if let client = haClient {
-            client.updateTimeLimit(newLimit)
-        }
-    }
-    
-    func updateTimeLimit(_ limit: TimeInterval) {
-        Logger.shared.log("Updating time limit to: \(limit)")
-        currentLimit = limit
-        checkLimits()  // Check if we need to suspend/resume
     }
 } 

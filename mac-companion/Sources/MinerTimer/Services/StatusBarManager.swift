@@ -1,387 +1,147 @@
-import Foundation
 import AppKit
 import SwiftUI
+import Combine
 
 @MainActor
 class StatusBarManager: NSObject {
-    private var statusItem: NSStatusItem!
-    private var monitor: ProcessMonitor
-    private var timer: Timer?
-    private var fastTimer: Timer?  // For second-by-second updates
-    private var isInWarningState = false
-    private var isInFinalWarningState = false
+    private let statusItem: NSStatusItem
+    private weak var monitor: ProcessMonitor?
+    private let timeScheduler = TimeScheduler.shared
+    private let relativeDateFormatter = RelativeDateTimeFormatter()
+    private var cancellables = Set<AnyCancellable>()
+    private var pendingMinutes: TimeInterval?
     
-    init(monitor: ProcessMonitor) {
+    init(monitor: ProcessMonitor? = nil) {
+        self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         self.monitor = monitor
+        
         super.init()
-        setupStatusBar()
-    }
-    
-    private func setupStatusBar() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        setupMenu()
-        updateStatusBarTitle()  // Initial update
         
-        // Normal timer for regular updates
-        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.checkTimerMode()
-            }
+        if let button = statusItem.button {
+            button.title = "Not Running"
+            button.font = NSFont.menuBarFont(ofSize: 0)
         }
+        
+        setupMenu()
+        setupBindings()
     }
     
-    private func checkTimerMode() {
-        let remainingTime = monitor.currentLimit - monitor.playedTime
-        
-        // Switch to fast updates in last minute
-        if remainingTime <= 1 && fastTimer == nil {
-            fastTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-                Task { @MainActor in
-                    self?.updateStatusBarTitle()
+    private func setupBindings() {
+        // Bind to played time for remaining time display
+        timeScheduler.playedTime.$value
+            .sink { [weak self] played in
+                guard let self = self else { return }
+                if self.monitor?.monitoredProcess != nil {
+                    let remainingTime = self.timeScheduler.currentLimit.value - played
+                    let title = self.formatTimeRemaining(remainingTime)
+                    self.statusItem.button?.title = title
                 }
             }
-        } else if remainingTime > 1 && fastTimer != nil {
-            fastTimer?.invalidate()
-            fastTimer = nil
-        }
+            .store(in: &cancellables)
         
-        updateStatusBarTitle()
-    }
-    
-    private func formatTimeRemaining(_ remainingTime: TimeInterval) -> String {
-        if remainingTime <= 0 {
-            return "⏱ 0:00"
-        } else if remainingTime <= 1 {
-            // Show deciseconds in last minute
-            let seconds = Int(remainingTime * 60)
-            return String(format: "⏱ 0:%02d", seconds)
-        } else if remainingTime <= 5 {
-            let minutes = Int(remainingTime)
-            let seconds = Int(round((remainingTime - Double(minutes)) * 60))
-            
-            if seconds == 60 {
-                return String(format: "⏱ %d:00", minutes + 1)
-            } else {
-                return String(format: "⏱ %d:%02d", minutes, seconds)
+        // Bind directly to current limit value changes
+        timeScheduler.currentLimit.$value
+            .sink { [weak self] value in
+                guard let self = self,
+                      let menu = self.statusItem.menu,
+                      let timeLimitItem = menu.item(at: 1) else { return }
+                
+                let current = self.timeScheduler.currentLimit
+                var menuTitle = "Current Limit: \(Int(value)) min"
+                menuTitle += " (changed \(self.relativeDateFormatter.string(for: current.lastChanged) ?? ""))"
+                let remainingTime = value - self.timeScheduler.playedTime.value
+                self.updateMenuItemColor(timeLimitItem, title: menuTitle, remainingTime: remainingTime)
             }
-        } else {
-            return "⏱ \(Int(round(remainingTime)))m"
-        }
-    }
-    
-    private func updateStatusBarTitle() {
-        guard let button = statusItem.button else { return }
-        
-        if monitor.monitoredProcess != nil {
-            let remainingTime = monitor.currentLimit - monitor.playedTime
-            let title = formatTimeRemaining(remainingTime)
-            
-            // Reset warning states if we're above 5 minutes
-            if remainingTime > 5 {
-                isInWarningState = false
-                isInFinalWarningState = false
-            }
-            
-            if remainingTime <= 1 && remainingTime > 0 && !isInFinalWarningState {
-                isInFinalWarningState = true
-                isInWarningState = false  // Ensure 5-minute warning won't trigger
-                NotificationManager.shared.playOneMinuteWarning()
-                let attributedTitle = NSAttributedString(
-                    string: title,
-                    attributes: [.foregroundColor: NSColor.systemRed]
-                )
-                button.attributedTitle = attributedTitle
-            } else if remainingTime <= 5 && remainingTime > 1 && !isInWarningState && !isInFinalWarningState {
-                isInWarningState = true
-                let roundedMinutes = Int(ceil(remainingTime))
-                NotificationManager.shared.playFiveMinuteWarning(remainingMinutes: roundedMinutes)
-                let attributedTitle = NSAttributedString(
-                    string: title,
-                    attributes: [.foregroundColor: NSColor.systemOrange]
-                )
-                button.attributedTitle = attributedTitle
-            } else if remainingTime <= 5 {
-                // Keep orange/red color for existing warnings
-                let color = remainingTime <= 1 ? NSColor.systemRed : NSColor.systemOrange
-                let attributedTitle = NSAttributedString(
-                    string: title,
-                    attributes: [.foregroundColor: color]
-                )
-                button.attributedTitle = attributedTitle
-            } else {
-                button.title = title
-            }
-        } else {
-            button.title = "⏱"
-            isInWarningState = false
-            isInFinalWarningState = false
-        }
-        
-        // Always update menu to ensure time limit is current
-        updateMenu()
+            .store(in: &cancellables)
     }
     
     private func setupMenu() {
         let menu = NSMenu()
         
-        // Time played (not a submenu)
-        let timePlayedItem = NSMenuItem(title: "Time played: 0 min", action: nil, keyEquivalent: "")
-        menu.addItem(timePlayedItem)
-        
-        // Time limit (not a submenu)
-        let timeLimitItem = NSMenuItem(title: "Time limit: 0 min", action: nil, keyEquivalent: "")
-        menu.addItem(timeLimitItem)
-        
+        menu.addItem(NSMenuItem(title: "Status", action: nil, keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Current Limit", action: nil, keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         
-        // Add Time submenu
         let addTimeMenu = NSMenu()
-        let addTimeItem = NSMenuItem(title: "Add Time...", action: nil, keyEquivalent: "")
-        addTimeItem.submenu = addTimeMenu
-        
-        // Add time options
-        let timeOptions = [15, 30, 60]
-        for minutes in timeOptions {
-            let item = NSMenuItem(title: "\(minutes) minutes", action: #selector(promptForPassword(_:)), keyEquivalent: "")
+        [15, 30, 60].forEach { minutes in
+            let item = NSMenuItem(
+                title: "\(minutes) minutes",
+                action: #selector(handleAddTime(_:)),
+                keyEquivalent: ""
+            )
+            item.tag = minutes
             item.target = self
-            item.representedObject = TimeInterval(minutes)
             addTimeMenu.addItem(item)
         }
         
-        // Custom time option
-        addTimeMenu.addItem(NSMenuItem.separator())
-        let customTimeItem = NSMenuItem(title: "Custom...", action: #selector(showAddTimeDialog), keyEquivalent: "")
-        customTimeItem.target = self
-        addTimeMenu.addItem(customTimeItem)
-        
+        let addTimeItem = NSMenuItem(title: "Add Time", action: nil, keyEquivalent: "")
+        addTimeItem.submenu = addTimeMenu
         menu.addItem(addTimeItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        let settingsItem = NSMenuItem(title: "Settings...", action: #selector(showSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+        
+        let quitItem = NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(quitItem)
         
         statusItem.menu = menu
     }
     
-    @objc private func testFiveMinuteAlert() {
-        Logger.shared.log("Testing five minute alert...")
-        
-        // Force sound to play
-        NSSound.beep()
-        
-        // Speak test message
-        let process = Process()
-        process.launchPath = "/usr/bin/say"
-        process.arguments = ["Testing five minute warning"]
-        try? process.run()
-        
-        // Show orange text temporarily
-        if let button = statusItem.button {
-            let title = button.title
-            let attributedTitle = NSAttributedString(
-                string: title,
-                attributes: [.foregroundColor: NSColor.systemOrange]
-            )
-            button.attributedTitle = attributedTitle
-            
-            // Reset after 3 seconds
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
-                Task { @MainActor in
-                    button.title = title
-                }
-            }
-        }
-        
-        Logger.shared.log("Test alert triggered")
+    @objc private func handleAddTime(_ sender: NSMenuItem) {
+        pendingMinutes = TimeInterval(sender.tag)
+        promptForPassword()
     }
     
-    private func updateMenu() {
-        guard let menu = statusItem.menu else { return }
-        
-        // Update time played
-        if let timePlayedItem = menu.item(at: 0) {
-            timePlayedItem.title = "Time played: \(Int(monitor.playedTime)) min"
-        }
-        
-        // Update time limit with warning color if needed
-        if let timeLimitItem = menu.item(at: 1) {
-            let remainingTime = monitor.currentLimit - monitor.playedTime
-            let title = "Time limit: \(Int(monitor.currentLimit)) min"
-            
-            if remainingTime <= 0 {
-                let attributedTitle = NSAttributedString(
-                    string: title,
-                    attributes: [.foregroundColor: NSColor.systemRed]
-                )
-                timeLimitItem.attributedTitle = attributedTitle
-            } else if remainingTime <= 1 {
-                let attributedTitle = NSAttributedString(
-                    string: title,
-                    attributes: [.foregroundColor: NSColor.systemRed]
-                )
-                timeLimitItem.attributedTitle = attributedTitle
-            } else if remainingTime <= 5 {
-                let attributedTitle = NSAttributedString(
-                    string: title,
-                    attributes: [.foregroundColor: NSColor.systemOrange]
-                )
-                timeLimitItem.attributedTitle = attributedTitle
-            } else {
-                timeLimitItem.title = title  // Reset to normal color
-            }
-        }
+    @objc private func showSettings() {
+        MinerTimerApp.shared.showSettings()
     }
     
-    @objc private func promptForPassword(_ sender: NSMenuItem) {
-        guard let minutes = sender.representedObject as? TimeInterval else { return }
+    private func promptForPassword() {
+        guard let pendingMinutes = pendingMinutes else { return }
         
-        // If no password is set, add time directly
-        if !PasswordStore.shared.hasPassword() {
-            monitor.addTime(minutes)
-            updateMenu()  // Update menu after adding time
-            return
-        }
-        
-        // Otherwise prompt for password
         let alert = NSAlert()
         alert.messageText = "Enter Password"
-        alert.informativeText = "Please enter the password to add time:"
-        
-        let input = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
-        alert.accessoryView = input
+        alert.informativeText = "Please enter the admin password to add time:"
         alert.addButton(withTitle: "OK")
         alert.addButton(withTitle: "Cancel")
         
-        input.target = self
-        
-        alert.beginSheetModal(for: NSApp.mainWindow ?? NSApp.windows.first!) { response in
-            if response == .alertFirstButtonReturn {  // OK button
-                let enteredPassword = input.stringValue
-                
-                if PasswordStore.shared.verifyPassword(enteredPassword) {
-                    self.monitor.addTime(minutes)
-                    self.updateMenu()  // Update menu after adding time
-                } else {
-                    let errorAlert = NSAlert()
-                    errorAlert.messageText = "Incorrect Password"
-                    errorAlert.informativeText = "The password you entered is incorrect."
-                    errorAlert.alertStyle = .critical
-                    errorAlert.runModal()
-                }
-            }
-        }
-    }
-    
-    @objc private func resetTime() {
-        monitor.resetTime()
-    }
-    
-    @objc private func promptForPasswordChange() {
-        let alert = NSAlert()
-        alert.messageText = "Change Password"
-        alert.informativeText = "Enter current password:"
-        
         let input = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
         alert.accessoryView = input
-        alert.addButton(withTitle: "Next")
-        alert.addButton(withTitle: "Cancel")
         
         alert.beginSheetModal(for: NSApp.mainWindow ?? NSApp.windows.first!) { response in
             if response == .alertFirstButtonReturn {
-                let currentPassword = input.stringValue
-                
-                if let correctPassword = PasswordStore.shared.getPassword(),
-                   currentPassword == correctPassword {
-                    self.promptForNewPassword()
-                } else {
-                    let errorAlert = NSAlert()
-                    errorAlert.messageText = "Incorrect Password"
-                    errorAlert.informativeText = "The current password is incorrect."
-                    errorAlert.alertStyle = .critical
-                    errorAlert.runModal()
+                Task {
+                    if await PasswordManager.shared.validate(input.stringValue) {
+                        self.timeScheduler.addTime(pendingMinutes)
+                    } else {
+                        let errorAlert = NSAlert()
+                        errorAlert.messageText = "Invalid Password"
+                        errorAlert.informativeText = "The password you entered is incorrect"
+                        errorAlert.alertStyle = .critical
+                        errorAlert.runModal()
+                    }
+                    self.pendingMinutes = nil
                 }
             }
         }
     }
     
-    @objc private func handlePasswordAction() {
-        if PasswordStore.shared.hasPassword() {
-            promptForPasswordChange()
+    private func formatTimeRemaining(_ minutes: TimeInterval) -> String {
+        return "\(Int(minutes))m"
+    }
+    
+    private func updateMenuItemColor(_ item: NSMenuItem, title: String, remainingTime: TimeInterval) {
+        item.title = title
+        if remainingTime <= 5 {
+            item.attributedTitle = NSAttributedString(
+                string: title,
+                attributes: [.foregroundColor: NSColor.systemRed]
+            )
         } else {
-            promptForNewPassword()  // Skip current password verification
+            item.attributedTitle = nil
         }
     }
-    
-    private func promptForNewPassword() {
-        let alert = NSAlert()
-        alert.messageText = PasswordStore.shared.hasPassword() ? "Change Password" : "Set Password"
-        alert.informativeText = "Enter new password:"
-        
-        let stackView = NSStackView(frame: NSRect(x: 0, y: 0, width: 200, height: 54))
-        stackView.orientation = .vertical
-        stackView.spacing = 6
-        
-        let newPasswordField = NSSecureTextField(frame: NSRect(x: 0, y: 30, width: 200, height: 24))
-        let confirmPasswordField = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
-        
-        stackView.addArrangedSubview(newPasswordField)
-        stackView.addArrangedSubview(confirmPasswordField)
-        
-        alert.accessoryView = stackView
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Cancel")
-        
-        alert.beginSheetModal(for: NSApp.mainWindow ?? NSApp.windows.first!) { response in
-            if response == .alertFirstButtonReturn {
-                let newPassword = newPasswordField.stringValue
-                let confirmPassword = confirmPasswordField.stringValue
-                
-                if newPassword.isEmpty {
-                    self.showError("Password cannot be empty")
-                } else if newPassword != confirmPassword {
-                    self.showError("Passwords do not match")
-                } else if PasswordStore.shared.setPassword(newPassword) {
-                    let successAlert = NSAlert()
-                    successAlert.messageText = "Success"
-                    successAlert.informativeText = "Password set successfully"
-                    successAlert.alertStyle = .informational
-                    successAlert.runModal()
-                    
-                    // Update menu to enable time adding
-                    self.setupMenu()
-                } else {
-                    self.showError("Failed to save password")
-                }
-            }
-        }
-    }
-    
-    private func showError(_ message: String) {
-        let alert = NSAlert()
-        alert.messageText = "Error"
-        alert.informativeText = message
-        alert.alertStyle = .critical
-        alert.runModal()
-    }
-    
-    @objc private func showAddTimeDialog() {
-        let alert = NSAlert()
-        alert.messageText = "Add Time"
-        alert.informativeText = "Enter minutes to add:"
-        
-        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 100, height: 24))
-        input.stringValue = "15"  // Default value
-        alert.accessoryView = input
-        alert.addButton(withTitle: "Add")
-        alert.addButton(withTitle: "Cancel")
-        
-        alert.beginSheetModal(for: NSApp.mainWindow ?? NSApp.windows.first!) { response in
-            if response == .alertFirstButtonReturn {
-                if let minutes = TimeInterval(input.stringValue) {
-                    self.monitor.addTime(minutes)
-                }
-            }
-        }
-    }
-    
-    @objc private func testAlert() {
-        Logger.shared.log("Testing alert...")
-        NotificationManager.shared.playFiveMinuteWarning(remainingMinutes: 5)
-    }
-} 
+}

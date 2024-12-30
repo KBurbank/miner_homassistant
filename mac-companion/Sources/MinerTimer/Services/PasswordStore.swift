@@ -7,7 +7,7 @@ class PasswordStore {
     private let passwordKey = "com.minertimer.password"
     private let salt = "MinerTimer2024"
     
-    private init() {}
+    init() {}
     
    
     func hasPassword() -> Bool {
