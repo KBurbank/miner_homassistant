@@ -12,6 +12,8 @@ public class HomeAssistantClient: @unchecked Sendable {
     private let discoveryPrefix = "homeassistant"
     private let deviceId = "minertimer_mac"
     private var lastPublishedValues: [String: Double] = [:]
+    private var lastMQTTUpdate: Date = Date()
+    private let updateInterval: TimeInterval = 60
     
     private init() {
         setupMQTT()
@@ -303,6 +305,19 @@ public class HomeAssistantClient: @unchecked Sendable {
         } else if topic == timeScheduler.weekendLimit.setTopic {
             timeScheduler.weekendLimit.updateFromMQTT(value: value)
         }
+    }
+    
+    func updatePlayedTime(_ value: TimeInterval) {
+        // Only send MQTT update if enough time has passed
+        let now = Date()
+        guard now.timeIntervalSince(lastMQTTUpdate) >= updateInterval else {
+            return
+        }
+        
+        lastMQTTUpdate = now
+        
+        // Use existing publish method with TimeValue
+        publish(value, to: TimeValue.create(kind: .played))
     }
 }
 

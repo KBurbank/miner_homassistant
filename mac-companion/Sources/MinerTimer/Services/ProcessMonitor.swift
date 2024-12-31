@@ -21,6 +21,8 @@ public class ProcessMonitor: ObservableObject {
     @Published public var timeLimit: (current: TimeLimits, weekday: TimeLimits, weekend: TimeLimits)
     private var lastCheck = Date()
     private var currentPlayedTime: TimeValue?
+    private var lastMQTTUpdate: Date = Date()
+    private let mqttUpdateInterval: TimeInterval = 60  // 1 minute
     
     init() {
         Logger.shared.log("🔨 Creating ProcessMonitor")
@@ -42,10 +44,13 @@ public class ProcessMonitor: ObservableObject {
             let elapsed = Date().timeIntervalSince(lastCheck)
             playedTime.update(value: playedTime.value + (elapsed / 60))
             
-            // Check if we need to suspend
-          
+            // Only update MQTT if enough time has passed
+            let now = Date()
+            if now.timeIntervalSince(lastMQTTUpdate) >= mqttUpdateInterval {
+                lastMQTTUpdate = now
+                HomeAssistantClient.shared.publish_to_HA(playedTime)
+            }
         }
-        
         
         lastCheck = Date()
     }

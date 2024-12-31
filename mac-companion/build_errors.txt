@@ -1,12 +1,53 @@
 Building for debugging...
 [0/4] Write sources
 [1/4] Write swift-version--58304C5D6DBC2206.txt
-[3/7] Compiling MinerTimer StatusBarManager.swift
-[4/7] Emitting module MinerTimer
-[5/7] Compiling MinerTimer HomeAssistantClient.swift
-[5/8] Write Objects.LinkFileList
-[6/8] Linking MinerTimer
-[7/8] Applying MinerTimer
-Build complete! (3.26s)
+[3/6] Emitting module MinerTimer
+[4/6] Compiling MinerTimer TimeIntervalKind.swift
+[5/18] Compiling MinerTimer PersistenceManager.swift
+/Users/kendra/miner/mac-companion/Sources/MinerTimer/Services/ProcessMonitor.swift:151:19: warning: variable 'process' was never mutated; consider changing to 'let' constant
+149 |     
+150 |     func suspendProcess() {
+151 |         guard var process = monitoredProcess else {
+    |                   `- warning: variable 'process' was never mutated; consider changing to 'let' constant
+152 |             Logger.shared.log("❌ No process to suspend")
+153 |             return
+
+/Users/kendra/miner/mac-companion/Sources/MinerTimer/Services/ProcessMonitor.swift:170:19: warning: variable 'process' was never mutated; consider changing to 'let' constant
+168 |     
+169 |     func resumeProcess() {
+170 |         guard var process = monitoredProcess else {
+    |                   `- warning: variable 'process' was never mutated; consider changing to 'let' constant
+171 |             Logger.shared.log("❌ No process to resume")
+172 |             return
+[6/18] Compiling MinerTimer ProcessMonitor.swift
+/Users/kendra/miner/mac-companion/Sources/MinerTimer/Services/ProcessMonitor.swift:151:19: warning: variable 'process' was never mutated; consider changing to 'let' constant
+149 |     
+150 |     func suspendProcess() {
+151 |         guard var process = monitoredProcess else {
+    |                   `- warning: variable 'process' was never mutated; consider changing to 'let' constant
+152 |             Logger.shared.log("❌ No process to suspend")
+153 |             return
+
+/Users/kendra/miner/mac-companion/Sources/MinerTimer/Services/ProcessMonitor.swift:170:19: warning: variable 'process' was never mutated; consider changing to 'let' constant
+168 |     
+169 |     func resumeProcess() {
+170 |         guard var process = monitoredProcess else {
+    |                   `- warning: variable 'process' was never mutated; consider changing to 'let' constant
+171 |             Logger.shared.log("❌ No process to resume")
+172 |             return
+[7/18] Compiling MinerTimer SettingsWindowController.swift
+[8/18] Compiling MinerTimer ContentView.swift
+[9/18] Compiling MinerTimer AppDelegate.swift
+[10/18] Compiling MinerTimer HAConfig.swift
+[11/18] Compiling MinerTimer StatusBarManager.swift
+[12/18] Compiling MinerTimer TimeScheduler.swift
+[13/18] Compiling MinerTimer Process.swift
+[14/18] Compiling MinerTimer HomeAssistantClient.swift
+[15/18] Compiling MinerTimer NotificationManager.swift
+[16/18] Compiling MinerTimer PasswordStore.swift
+[16/19] Write Objects.LinkFileList
+[17/19] Linking MinerTimer
+[18/19] Applying MinerTimer
+Build complete! (3.28s)
 Build successful!
 App bundle created at MinerTimer.app

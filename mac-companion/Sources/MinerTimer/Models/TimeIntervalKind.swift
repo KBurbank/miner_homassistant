@@ -20,6 +20,8 @@ public class TimeValue: Codable, Equatable, @unchecked Sendable, ObservableObjec
     let name: String
     
     private var updatingFromMQTT = false
+    private var lastMQTTUpdate: Date = Date()
+    private let mqttUpdateInterval: TimeInterval = 60  // 1 minute
     
     init(value: TimeInterval, lastChanged: Date = Date(), baseKey: String?, isBaseLimit: Bool, name: String) {
         Logger.shared.log("🔨 Creating TimeValue")
@@ -111,16 +113,25 @@ public class TimeValue: Codable, Equatable, @unchecked Sendable, ObservableObjec
     
     @MainActor
     func update(value: TimeInterval) {
-      //  Logger.shared.log("📝 Updating TimeValue")
-      //  Logger.shared.log("📝 Old value: \(self.value)")
-      //  Logger.shared.log("📝 New value: \(value)")
-        
         self.value = value
         self.lastChanged = Date()
-        saveToDefaults()
         
+        // Save to UserDefaults
+        if let key = baseKey {
+            let defaults = UserDefaults.standard
+            defaults.set(value, forKey: key)
+            defaults.synchronize()
+            Logger.shared.log("💾 Saving value: \(value) with key: \(key)")
+            Logger.shared.log("💾 Save successful")
+        }
+        
+        // Only publish to MQTT if enough time has passed and we're not updating from MQTT
         if !updatingFromMQTT {
-            HomeAssistantClient.shared.publish_to_HA(self)
+            let now = Date()
+            if now.timeIntervalSince(lastMQTTUpdate) >= mqttUpdateInterval {
+                lastMQTTUpdate = now
+                HomeAssistantClient.shared.publish_to_HA(self)
+            }
         }
     }
     
