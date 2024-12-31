@@ -107,26 +107,28 @@ public class HomeAssistantClient: @unchecked Sendable {
                 "state_topic": timeValue.stateTopic,
                 "unit_of_measurement": "minutes",
                 "device": deviceConfig,
-                "retain": true
+                "retain": false,
+                "optimistic": true
             ]
             
             if type == "number" {
-                // Only add these for editable number entities
+                // Only add these for editable number entities. they need to be between 0 and 1440, which is 24 hours in minutes.
                 if timeValue.mqttTopic != "played_time" {
                     config["command_topic"] = timeValue.setTopic
                     config["min"] = min ?? 0
                     config["max"] = max ?? 1440
-                    config["optimistic"] = true
                 }
             }
             
             if let jsonData = try? JSONSerialization.data(withJSONObject: config),
                let jsonString = String(data: jsonData, encoding: .utf8) {
                 client.publish(
-                    .string(jsonString),
-                    to: "\(discoveryPrefix)/\(type)/\(deviceId)/\(timeValue.mqttTopic)/config",
-                    qos: .atLeastOnce,
-                    retain: false
+                    .init(
+                        topic: "\(discoveryPrefix)/\(type)/\(deviceId)/\(timeValue.mqttTopic)/config",
+                        payload: .string(jsonString),
+                        qos: .atLeastOnce,
+                        retain: true
+                    )
                 )
             }
         }
@@ -232,21 +234,23 @@ public class HomeAssistantClient: @unchecked Sendable {
         
         let publishTopic = timeValue.stateTopic
         
-        // Include timestamp in payload
-        let payload = [
-            "value": value,
-            "timestamp": Date().timeIntervalSince1970
-        ]
-        
-        if let jsonData = try? JSONEncoder().encode(payload),
-           let jsonString = String(data: jsonData, encoding: .utf8) {
-            client.publish(
-                .string(jsonString),
-                to: publishTopic,
+        // Send numeric value with timestamp in properties
+        client.publish(
+            .init(
+                topic: publishTopic,
+                payload: .string(String(format: "%.2f", value)),  // Format to 2 decimal places
                 qos: .atMostOnce,
-                retain: true
+                retain: false,
+                properties: .init(
+                    userProperties: [
+                        MQTTUserProperty(
+                            name: "timestamp",
+                            value: String(Date().timeIntervalSince1970)
+                        )
+                    ]
+                )
             )
-        }
+        )
     }
     
     func publish_to_HA(_ timeValue: TimeValue) {

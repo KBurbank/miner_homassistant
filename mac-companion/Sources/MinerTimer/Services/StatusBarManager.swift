@@ -46,8 +46,7 @@ class StatusBarManager: NSObject {
                       let menu = self.statusItem.menu,
                       let timeLimitItem = menu.item(at: 1) else { return }
                 
-                let current = self.timeScheduler.currentLimit
-                var menuTitle = "Current Limit: \(Int(value)) min"
+                let menuTitle = "Current Limit: \(Int(value)) min"
                 let remainingTime = value - self.timeScheduler.playedTime.value
                 self.updateMenuItemColor(timeLimitItem, title: menuTitle, remainingTime: remainingTime)
             }
@@ -77,25 +76,12 @@ class StatusBarManager: NSObject {
         addTimeItem.submenu = addTimeMenu
         menu.addItem(addTimeItem)
         
-        menu.addItem(NSMenuItem.separator())
-        
-        let settingsItem = NSMenuItem(title: "Settings...", action: #selector(showSettings), keyEquivalent: ",")
-        settingsItem.target = self
-        menu.addItem(settingsItem)
-        
-        let quitItem = NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        menu.addItem(quitItem)
-        
         statusItem.menu = menu
     }
     
     @objc private func handleAddTime(_ sender: NSMenuItem) {
         pendingMinutes = TimeInterval(sender.tag)
         promptForPassword()
-    }
-    
-    @objc private func showSettings() {
-        MinerTimerApp.shared.showSettings()
     }
     
     private func promptForPassword() {
@@ -129,7 +115,7 @@ class StatusBarManager: NSObject {
     }
     
     private func formatTimeRemaining(_ minutes: TimeInterval) -> String {
-        return "\(Int(minutes))m"
+        return "\(Int(minutes))m remaining"
     }
     
     private func updateMenuItemColor(_ item: NSMenuItem, title: String, remainingTime: TimeInterval) {

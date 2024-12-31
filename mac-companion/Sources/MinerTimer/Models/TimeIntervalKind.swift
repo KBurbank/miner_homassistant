@@ -33,19 +33,6 @@ public class TimeValue: Codable, Equatable, @unchecked Sendable, ObservableObjec
         self.baseKey = baseKey
         self.isBaseLimit = isBaseLimit
         self.name = name
-        
-        if let baseKey = baseKey {
-            Logger.shared.log("🔨 Attempting to load saved value")
-            if let savedValue = Self.loadFromDefaults(key: baseKey) as? Self {
-                Logger.shared.log("🔨 Found saved value: \(savedValue.value)")
-                self.value = savedValue.value
-                self.lastChanged = savedValue.lastChanged
-            } else {
-                Logger.shared.log("🔨 No saved value found, using initial value")
-            }
-        } else {
-            Logger.shared.log("🔨 No base key provided, skipping load")
-        }
     }
     
     // MQTT topics derived from baseKey
@@ -72,13 +59,25 @@ public class TimeValue: Codable, Equatable, @unchecked Sendable, ObservableObjec
     static func loadFromDefaults(key: String) -> TimeValue? {
         Logger.shared.log("📖 Attempting to load TimeValue with key: \(key)")
         
-        if let loaded = UserDefaults.standard.getCodable(TimeValue.self, forKey: key) {
-            Logger.shared.log("📖 Successfully loaded value: \(loaded.value)")
-            return loaded
-        } else {
-            Logger.shared.log("⚠️ No saved value found for key: \(key)")
-            return nil
+        // Try to load TimeValueData first
+        if let data = UserDefaults.standard.data(forKey: key),
+           let savedData = try? JSONDecoder().decode(TimeValueData.self, from: data) {
+            Logger.shared.log("📖 Successfully loaded value: \(savedData.value)")
+            
+            // Create TimeValue with the loaded value
+            let kind = TimeValueKind.allCases.first { $0.config.baseKey == key }
+            if let kind = kind {
+                let config = kind.config
+                return TimeValue(value: savedData.value,
+                               lastChanged: savedData.lastUpdated,
+                               baseKey: config.baseKey,
+                               isBaseLimit: config.isBaseLimit,
+                               name: config.name)
+            }
         }
+        
+        Logger.shared.log("⚠️ No saved value found for key: \(key)")
+        return nil
     }
     
     public static func == (lhs: TimeValue, rhs: TimeValue) -> Bool {
@@ -152,7 +151,7 @@ public class TimeValue: Codable, Equatable, @unchecked Sendable, ObservableObjec
                 }
             }
             
-            Logger.shared.log("🔨 Found saved value: \(savedValue.value)")
+            Logger.shared.log("🔨 Found saved value: \(savedValue.value) from \(savedValue.lastUpdated)")
             return savedValue.value
         }
         
@@ -182,6 +181,13 @@ public enum TimeValueKind: CaseIterable {
 extension TimeValue {
     static func create(kind: TimeValueKind, value: TimeInterval = 0) -> TimeValue {
         let config = kind.config
+        
+        // Try to load saved value first
+        if let savedValue = loadFromDefaults(key: config.baseKey) {
+            return savedValue
+        }
+        
+        // Create new with default value if no saved value exists
         return TimeValue(value: value, 
                         baseKey: config.baseKey, 
                         isBaseLimit: config.isBaseLimit, 
@@ -198,9 +204,10 @@ extension TimeValue {
         
         // Check if we need to reset current limit
         let defaults = UserDefaults.standard
-        let lastCloseKey = "com.minertimer.lastCloseTime"
+        let lastCloseTime = defaults.double(forKey: "last_close_time")
         
-        if let lastClose = defaults.object(forKey: lastCloseKey) as? Date {
+        if lastCloseTime > 0 {
+            let lastClose = Date(timeIntervalSince1970: lastCloseTime)
             // Get midnight of today in local time zone
             var calendar = Calendar.current
             calendar.timeZone = TimeZone.current

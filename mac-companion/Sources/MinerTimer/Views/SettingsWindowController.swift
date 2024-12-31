@@ -10,15 +10,16 @@ class SettingsWindowController: NSWindowController {
     
     convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
-            styleMask: [.titled, .closable, .miniaturizable],
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 300),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
         window.title = "Settings"
         window.center()
+        window.isReleasedWhenClosed = false
         
-        let contentView = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
+        let contentView = NSView(frame: NSRect(x: 0, y: 0, width: 480, height: 300))
         window.contentView = contentView
         
         self.init(window: window)

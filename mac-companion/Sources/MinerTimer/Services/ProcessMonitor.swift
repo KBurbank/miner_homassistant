@@ -1,5 +1,6 @@
 import Foundation
 
+
 // This is the class that monitors the process (e.g. Minecraft)
 
 @MainActor
@@ -17,46 +18,38 @@ public class ProcessMonitor: ObservableObject {
     }
     
     @Published private(set) var monitoredProcess: MonitoredProcess?
-    @Published private(set) var playedTime: TimeValue
     @Published public var timeLimit: (current: TimeLimits, weekday: TimeLimits, weekend: TimeLimits)
-    @Published private(set) var timeScheduler: TimeScheduler
-    
-
     private var lastCheck = Date()
+    private var currentPlayedTime: TimeValue?
     
     init() {
-        self.playedTime = TimeValue.create(kind: .played)
+        Logger.shared.log("🔨 Creating ProcessMonitor")
         let (current, weekday, weekend) = TimeLimits.create()
         self.timeLimit = (current, weekday, weekend)
-        self.timeScheduler = TimeScheduler.shared
+        Logger.shared.log("🔨 ProcessMonitor created")
     }
     
-    func updatePlayedTime(playedTime: TimeValue) {
-        // Update played time
-        let now = Date()
+    @MainActor
+    func updatePlayedTime(playedTime: TimeValue) async {
+        Logger.shared.log("⏱️ ProcessMonitor.updatePlayedTime called")
+        self.currentPlayedTime = playedTime
+        
+        // Check for Java process
+        checkProcesses()
+        
+        // Only update time if process is running
         if let process = monitoredProcess, process.state == .running {
-            let elapsed = now.timeIntervalSince(lastCheck)
-            playedTime.value += elapsed
+            let elapsed = Date().timeIntervalSince(lastCheck)
+            playedTime.update(value: playedTime.value + (elapsed / 60))
             
-            // Update Home Assistant
-
+            // Check if we need to suspend
+          
         }
-        lastCheck = now
- 
-        // Check if we need to suspend
-        checkLimits()
+        
+        
+        lastCheck = Date()
     }
     
-    private func checkLimits() {
-        if let process = monitoredProcess {
-            if case .current(let currentValue) = timeLimit.current,
-               playedTime.value >= currentValue.value && process.state == .running {
-                Logger.shared.log("Time limit reached (\(Int(playedTime.value)) >= \(Int(currentValue.value)))")
-                suspendProcess(process.pid)
-                NotificationManager.shared.playTimeUpSound()
-            }
-        }
-    }
     
     public func addTime(_ minutes: TimeInterval) {
         if case .current(let currentValue) = timeLimit.current {
@@ -67,7 +60,7 @@ public class ProcessMonitor: ObservableObject {
     
     public func resetTime() {
         Logger.shared.log("Resetting played time to 0")
-        playedTime.update(value: 0)
+        currentPlayedTime?.update(value: 0)
     }
     
     public func simulateMidnight() {
@@ -100,8 +93,8 @@ public class ProcessMonitor: ObservableObject {
         }
     }
     
-    private func checkProcesses() {
-        Logger.shared.log("ProcessMonitor: Checking processes...")
+    internal func checkProcesses() {
+        Logger.shared.log("🔍 ProcessMonitor: Starting process check...")
         let task = Process()
         task.launchPath = "/usr/bin/pgrep"
         task.arguments = ["-l", "java"]
@@ -113,62 +106,77 @@ public class ProcessMonitor: ObservableObject {
             try task.run()
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             if let output = String(data: data, encoding: .utf8) {
-                Logger.shared.log("ProcessMonitor: Found processes: \(output)")
+                Logger.shared.log("🔍 pgrep output: '\(output)'")
                 if !output.isEmpty {
                     let lines = output.components(separatedBy: .newlines)
-                    if let firstLine = lines.first,
-                       let pid = Int32(firstLine.components(separatedBy: " ")[0]) {
-                        
-                        // Keep existing state if it's the same process
-                        if let existing = monitoredProcess, existing.pid == pid {
-                            Logger.shared.log("ProcessMonitor: Found existing process (PID: \(pid), State: \(existing.state.rawValue))")
+                    Logger.shared.log("🔍 Found \(lines.count) lines")
+                    if let firstLine = lines.first {
+                        Logger.shared.log("🔍 First line: '\(firstLine)'")
+                        let components = firstLine.components(separatedBy: " ")
+                        Logger.shared.log("🔍 Line components: \(components)")
+                        if let pid = Int32(components[0]) {
+                            // Keep existing state if it's the same process
+                            if let existing = monitoredProcess, existing.pid == pid {
+                                Logger.shared.log("✅ Found existing Java process (PID: \(pid), State: \(existing.state.rawValue))")
+                            } else {
+                                let process = MonitoredProcess(
+                                    pid: pid,
+                                    name: "Minecraft",
+                                    startTime: Date(),
+                                    state: .running
+                                )
+                                monitoredProcess = process
+                                Logger.shared.log("✅ Found new Java process (PID: \(pid))")
+                            }
                         } else {
-                            // Only create new process if it's a different one
-                            let process = MonitoredProcess(
-                                pid: pid,
-                                name: "Minecraft",
-                                startTime: Date(),
-                                state: .running
-                            )
-                            monitoredProcess = process
-                            Logger.shared.log("ProcessMonitor: Found new Minecraft process (PID: \(pid))")
+                            Logger.shared.log("⚠️ Could not parse PID from line: '\(firstLine)'")
                         }
                     }
                 } else {
                     monitoredProcess = nil
-                    Logger.shared.log("ProcessMonitor: No Java processes found")
+                    Logger.shared.log("❌ No Java processes found")
                 }
             }
         } catch {
-            Logger.shared.log("ProcessMonitor: Error checking processes: \(error)")
+            Logger.shared.log("❌ Error checking processes: \(error)")
         }
     }
     
-    func suspendProcess(_ pid: Int32) {
-        kill(pid, SIGSTOP)
-        
-        // Update process state
-        if let process = monitoredProcess {
-            monitoredProcess = MonitoredProcess(
-                pid: process.pid,
-                name: process.name,
-                startTime: process.startTime,
-                state: .suspended
-            )
+    func suspendProcess() {
+        guard var process = monitoredProcess else {
+            Logger.shared.log("❌ No process to suspend")
+            return
         }
+        
+        Logger.shared.log("🛑 Suspending process \(process.pid)")
+        kill(process.pid, SIGSTOP)
+        
+        // Create new MonitoredProcess with suspended state
+        monitoredProcess = MonitoredProcess(
+            pid: process.pid,
+            name: process.name,
+            startTime: process.startTime,
+            state: .suspended
+        )
+        Logger.shared.log("✅ Process suspended")
     }
     
-    func resumeProcess(_ pid: Int32) {
-        kill(pid, SIGCONT)
-        
-        // Update process state
-        if let process = monitoredProcess {
-            monitoredProcess = MonitoredProcess(
-                pid: process.pid,
-                name: process.name,
-                startTime: process.startTime,
-                state: .running
-            )
+    func resumeProcess() {
+        guard var process = monitoredProcess else {
+            Logger.shared.log("❌ No process to resume")
+            return
         }
+        
+        Logger.shared.log("▶️ Resuming process \(process.pid)")
+        kill(process.pid, SIGCONT)
+        
+        // Create new MonitoredProcess with running state
+        monitoredProcess = MonitoredProcess(
+            pid: process.pid,
+            name: process.name,
+            startTime: process.startTime,
+            state: .running
+        )
+        Logger.shared.log("✅ Process resumed")
     }
 } 

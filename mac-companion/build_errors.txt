@@ -1,57 +1,12 @@
 Building for debugging...
 [0/4] Write sources
 [1/4] Write swift-version--58304C5D6DBC2206.txt
-[3/6] Compiling MinerTimer TimeIntervalKind.swift
-[4/6] Emitting module MinerTimer
-[5/22] Compiling MinerTimer PasswordStore.swift
-[6/22] Compiling MinerTimer PersistenceManager.swift
-[7/22] Compiling MinerTimer PasswordSheet.swift
-[8/22] Compiling MinerTimer SettingsWindowController.swift
-[9/22] Compiling MinerTimer TimeScheduler.swift
-[10/22] Compiling MinerTimer ContentView.swift
-[11/22] Compiling MinerTimer HAConfig.swift
-[12/22] Compiling MinerTimer Process.swift
-[13/22] Compiling MinerTimer HomeAssistantClient.swift
-[14/22] Compiling MinerTimer Logger.swift
-[15/22] Compiling MinerTimer AppDelegate.swift
-[16/22] Compiling MinerTimer MinerTimerApp.swift
-[17/22] Compiling MinerTimer NotificationManager.swift
-[18/22] Compiling MinerTimer PasswordManager.swift
-[19/22] Compiling MinerTimer ProcessMonitor.swift
-/Users/kendra/Documents/code/miner/mac-companion/Sources/MinerTimer/Services/StatusBarManager.swift:49:21: warning: initialization of immutable value 'current' was never used; consider replacing with assignment to '_' or removing it
- 47 |                       let timeLimitItem = menu.item(at: 1) else { return }
- 48 |                 
- 49 |                 let current = self.timeScheduler.currentLimit
-    |                     `- warning: initialization of immutable value 'current' was never used; consider replacing with assignment to '_' or removing it
- 50 |                 var menuTitle = "Current Limit: \(Int(value)) min"
- 51 |                 let remainingTime = value - self.timeScheduler.playedTime.value
-
-/Users/kendra/Documents/code/miner/mac-companion/Sources/MinerTimer/Services/StatusBarManager.swift:50:21: warning: variable 'menuTitle' was never mutated; consider changing to 'let' constant
- 48 |                 
- 49 |                 let current = self.timeScheduler.currentLimit
- 50 |                 var menuTitle = "Current Limit: \(Int(value)) min"
-    |                     `- warning: variable 'menuTitle' was never mutated; consider changing to 'let' constant
- 51 |                 let remainingTime = value - self.timeScheduler.playedTime.value
- 52 |                 self.updateMenuItemColor(timeLimitItem, title: menuTitle, remainingTime: remainingTime)
-[20/22] Compiling MinerTimer StatusBarManager.swift
-/Users/kendra/Documents/code/miner/mac-companion/Sources/MinerTimer/Services/StatusBarManager.swift:49:21: warning: initialization of immutable value 'current' was never used; consider replacing with assignment to '_' or removing it
- 47 |                       let timeLimitItem = menu.item(at: 1) else { return }
- 48 |                 
- 49 |                 let current = self.timeScheduler.currentLimit
-    |                     `- warning: initialization of immutable value 'current' was never used; consider replacing with assignment to '_' or removing it
- 50 |                 var menuTitle = "Current Limit: \(Int(value)) min"
- 51 |                 let remainingTime = value - self.timeScheduler.playedTime.value
-
-/Users/kendra/Documents/code/miner/mac-companion/Sources/MinerTimer/Services/StatusBarManager.swift:50:21: warning: variable 'menuTitle' was never mutated; consider changing to 'let' constant
- 48 |                 
- 49 |                 let current = self.timeScheduler.currentLimit
- 50 |                 var menuTitle = "Current Limit: \(Int(value)) min"
-    |                     `- warning: variable 'menuTitle' was never mutated; consider changing to 'let' constant
- 51 |                 let remainingTime = value - self.timeScheduler.playedTime.value
- 52 |                 self.updateMenuItemColor(timeLimitItem, title: menuTitle, remainingTime: remainingTime)
-[20/23] Write Objects.LinkFileList
-[21/23] Linking MinerTimer
-[22/23] Applying MinerTimer
-Build complete! (4.81s)
+[3/7] Compiling MinerTimer StatusBarManager.swift
+[4/7] Emitting module MinerTimer
+[5/7] Compiling MinerTimer HomeAssistantClient.swift
+[5/8] Write Objects.LinkFileList
+[6/8] Linking MinerTimer
+[7/8] Applying MinerTimer
+Build complete! (3.26s)
 Build successful!
 App bundle created at MinerTimer.app
