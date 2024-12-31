@@ -1,8 +1,8 @@
 import Cocoa
 import SwiftUI
 
-@main
 struct MinerTimerApp {
+    @MainActor
     static func main() {
         let app = NSApplication.shared
         let delegate = AppDelegate()

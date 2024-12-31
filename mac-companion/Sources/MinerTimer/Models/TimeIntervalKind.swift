@@ -12,6 +12,7 @@ private struct TimeValueData: Codable {
     let lastUpdated: Date
 }
 
+@available(macOS 10.15, *)
 public class TimeValue: Codable, Equatable, @unchecked Sendable, ObservableObject {
     @Published public internal(set) var value: TimeInterval
     var lastChanged: Date
@@ -115,15 +116,7 @@ public class TimeValue: Codable, Equatable, @unchecked Sendable, ObservableObjec
     func update(value: TimeInterval) {
         self.value = value
         self.lastChanged = Date()
-        
-        // Save to UserDefaults
-        if let key = baseKey {
-            let defaults = UserDefaults.standard
-            defaults.set(value, forKey: key)
-            defaults.synchronize()
-            Logger.shared.log("💾 Saving value: \(value) with key: \(key)")
-            Logger.shared.log("💾 Save successful")
-        }
+        saveToDefaults()
         
         // Only publish to MQTT if enough time has passed and we're not updating from MQTT
         if !updatingFromMQTT {
@@ -242,6 +235,7 @@ extension TimeValue {
     }
 }
 
+@available(macOS 10.15, *)
 public enum TimeLimits {
     case current(TimeValue)
     case weekday(TimeValue)

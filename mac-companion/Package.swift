@@ -1,4 +1,4 @@
-// swift-tools-version:5.7
+// swift-tools-version:5.3
 import PackageDescription
 
 let package = Package(
@@ -7,14 +7,12 @@ let package = Package(
         .macOS(.v10_15)
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-atomics.git", from: "1.0.0"),
-        .package(url: "https://github.com/sroebert/mqtt-nio.git", from: "2.8.0")
+        .package(url: "https://github.com/sroebert/mqtt-nio.git", from: "2.8.1")
     ],
     targets: [
-        .executableTarget(
+        .target(
             name: "MinerTimer",
             dependencies: [
-                .product(name: "Atomics", package: "swift-atomics"),
                 .product(name: "MQTTNIO", package: "mqtt-nio")
             ],
             exclude: [
