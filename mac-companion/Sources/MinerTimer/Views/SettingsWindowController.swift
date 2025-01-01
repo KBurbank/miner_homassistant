@@ -1,216 +1,265 @@
-import AppKit
+import Cocoa
 import SwiftUI
 
+class SettingsState: ObservableObject {
+    @Published var mqttConfig = MQTTConfig.load()
+    @Published var showingMQTTConfig = false
+}
+
 class SettingsWindowController: NSWindowController {
-    private var changePasswordButton: NSButton!
-    private var weekdayField: NSTextField!
-    private var weekendField: NSTextField!
-    private var saveButton: NSButton!
+    private let state = SettingsState()
     private let timeScheduler = TimeScheduler.shared
     
-    convenience init() {
+    init() {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 480, height: 300),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
         window.title = "Settings"
         window.center()
-        window.isReleasedWhenClosed = false
         
-        let contentView = NSView(frame: NSRect(x: 0, y: 0, width: 480, height: 300))
-        window.contentView = contentView
+        super.init(window: window)
         
-        self.init(window: window)
-        
-        setupUI()
+        window.contentView = NSHostingView(rootView: SettingsView(
+            state: state,
+            timeScheduler: timeScheduler
+        ))
     }
     
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
+}
+
+struct SettingsView: View {
+    @ObservedObject var state: SettingsState
+    let timeScheduler: TimeScheduler
     
-    override init(window: NSWindow?) {
-        super.init(window: window)
+    @State private var weekdayLimit: String
+    @State private var weekendLimit: String
+    @State private var showingPasswordPrompt = false
+    @State private var showingPasswordChange = false
+    @State private var currentPassword = ""
+    @State private var newPassword = ""
+    @State private var confirmPassword = ""
+    @State private var errorMessage = ""
+    @State private var showingError = false
+    @State private var showingPasswordInput = false
+    
+    init(state: SettingsState, timeScheduler: TimeScheduler) {
+        self.state = state
+        self.timeScheduler = timeScheduler
+        
+        // Initialize time limits
+        _weekdayLimit = State(initialValue: String(Int(timeScheduler.weekdayLimit.value)))
+        _weekendLimit = State(initialValue: String(Int(timeScheduler.weekendLimit.value)))
     }
     
-    private func setupUI() {
-        guard let contentView = window?.contentView else { return }
-        
-        // Add Change Password button
-        changePasswordButton = NSButton(frame: NSRect(x: 20, y: 260, width: 150, height: 24))
-        changePasswordButton.title = "Change Password..."
-        changePasswordButton.bezelStyle = .rounded
-        changePasswordButton.target = self
-        changePasswordButton.action = #selector(handlePasswordAction)
-        contentView.addSubview(changePasswordButton)
-        
-        // Add Weekday Limit field
-        let weekdayLabel = NSTextField(frame: NSRect(x: 20, y: 220, width: 100, height: 24))
-        weekdayLabel.stringValue = "Weekday Limit:"
-        weekdayLabel.isEditable = false
-        weekdayLabel.isBordered = false
-        weekdayLabel.backgroundColor = .clear
-        contentView.addSubview(weekdayLabel)
-        
-        weekdayField = NSTextField(frame: NSRect(x: 130, y: 220, width: 60, height: 24))
-        weekdayField.stringValue = "\(Int(timeScheduler.weekdayLimit.value))"
-        contentView.addSubview(weekdayField)
-        
-        let weekdayMinLabel = NSTextField(frame: NSRect(x: 195, y: 220, width: 60, height: 24))
-        weekdayMinLabel.stringValue = "minutes"
-        weekdayMinLabel.isEditable = false
-        weekdayMinLabel.isBordered = false
-        weekdayMinLabel.backgroundColor = .clear
-        contentView.addSubview(weekdayMinLabel)
-        
-        // Add Weekend Limit field
-        let weekendLabel = NSTextField(frame: NSRect(x: 20, y: 180, width: 100, height: 24))
-        weekendLabel.stringValue = "Weekend Limit:"
-        weekendLabel.isEditable = false
-        weekendLabel.isBordered = false
-        weekendLabel.backgroundColor = .clear
-        contentView.addSubview(weekendLabel)
-        
-        weekendField = NSTextField(frame: NSRect(x: 130, y: 180, width: 60, height: 24))
-        weekendField.stringValue = "\(Int(timeScheduler.weekendLimit.value))"
-        contentView.addSubview(weekendField)
-        
-        let weekendMinLabel = NSTextField(frame: NSRect(x: 195, y: 180, width: 60, height: 24))
-        weekendMinLabel.stringValue = "minutes"
-        weekendMinLabel.isEditable = false
-        weekendMinLabel.isBordered = false
-        weekendMinLabel.backgroundColor = .clear
-        contentView.addSubview(weekendMinLabel)
-        
-        // Add Save button
-        saveButton = NSButton(frame: NSRect(x: 20, y: 140, width: 100, height: 24))
-        saveButton.title = "Save Limits"
-        saveButton.bezelStyle = .rounded
-        saveButton.target = self
-        saveButton.action = #selector(handleSaveAction)
-        contentView.addSubview(saveButton)
-    }
-    
-    @objc private func handlePasswordAction() {
-        if PasswordStore.shared.hasPassword() {
-            promptForPasswordChange()
-        } else {
-            promptForNewPassword()
-        }
-    }
-    
-    private func promptForPasswordChange() {
-        let alert = NSAlert()
-        alert.messageText = "Enter Current Password"
-        alert.informativeText = "Please enter your current password:"
-        
-        let input = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
-        alert.accessoryView = input
-        alert.addButton(withTitle: "OK")
-        alert.addButton(withTitle: "Cancel")
-        
-        alert.beginSheetModal(for: window!) { response in
-            if response == .alertFirstButtonReturn {
-                let currentPassword = input.stringValue
-                Logger.shared.log("Attempting to verify password...")
-                
-                if PasswordStore.shared.verifyPassword(currentPassword) {
-                    Logger.shared.log("Password verified successfully")
-                    self.promptForNewPassword()
-                } else {
-                    Logger.shared.log("Password verification failed")
-                    let errorAlert = NSAlert()
-                    errorAlert.messageText = "Incorrect Password"
-                    errorAlert.informativeText = "The current password is incorrect."
-                    errorAlert.alertStyle = .critical
-                    errorAlert.runModal()
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 12) {
+                // Time Limits
+                GroupBox(label: Text("Time Limits").font(.headline)) {
+                    VStack(spacing: 8) {
+                        HStack {
+                            Text("Weekday Limit:")
+                            TextField("", text: Binding(
+                                get: { weekdayLimit },
+                                set: { newValue in
+                                    weekdayLimit = newValue.filter { $0.isNumber }
+                                }
+                            ))
+                            .frame(width: 60)
+                            Text("minutes")
+                            Spacer()
+                        }
+                        
+                        HStack {
+                            Text("Weekend Limit:")
+                            TextField("", text: Binding(
+                                get: { weekendLimit },
+                                set: { newValue in
+                                    weekendLimit = newValue.filter { $0.isNumber }
+                                }
+                            ))
+                            .frame(width: 60)
+                            Text("minutes")
+                            Spacer()
+                        }
+                        
+                        HStack {
+                            Spacer()
+                            Button("Save Limits") {
+                                showingPasswordInput = true
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
                 }
+                .padding(.horizontal)
+                
+                // Password Settings
+                GroupBox(label: Text("Password Settings").font(.headline)) {
+                    HStack {
+                        Spacer()
+                        Button(PasswordStore.shared.hasPassword() ? "Change Password..." : "Set Password...") {
+                            showingPasswordChange = true
+                        }
+                        Spacer()
+                    }
+                    .padding(.vertical, 4)
+                }
+                .padding(.horizontal)
+                
+                // MQTT Settings
+                GroupBox(label: Text("MQTT Integration").font(.headline)) {
+                    VStack(spacing: 8) {
+                        Toggle("Enable MQTT Integration", isOn: Binding(
+                            get: { state.mqttConfig.isEnabled },
+                            set: { newValue in
+                                state.mqttConfig.isEnabled = newValue
+                                state.mqttConfig.save()
+                                HomeAssistantClient.shared.updateConfig(state.mqttConfig)
+                            }
+                        ))
+                        
+                        if state.mqttConfig.isEnabled {
+                            HStack {
+                                Spacer()
+                                Button("Configure MQTT") {
+                                    state.showingMQTTConfig = true
+                                }
+                                Spacer()
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+                .padding(.horizontal)
             }
+            .padding(.vertical)
+        }
+        .frame(maxHeight: .infinity)
+        .sheet(isPresented: $state.showingMQTTConfig) {
+            MQTTConfigSheet(config: Binding(
+                get: { state.mqttConfig },
+                set: { newValue in
+                    state.mqttConfig = newValue
+                }
+            ))
+        }
+        .sheet(isPresented: $showingPasswordChange) {
+            VStack(spacing: 20) {
+                Text(PasswordStore.shared.hasPassword() ? "Change Password" : "Set Password")
+                    .font(.title)
+                    .padding(.top)
+                
+                if PasswordStore.shared.hasPassword() {
+                    SecureField("Current Password", text: $currentPassword)
+                }
+                
+                SecureField("New Password", text: $newPassword)
+                SecureField("Confirm Password", text: $confirmPassword)
+                
+                HStack {
+                    Button("Cancel") {
+                        showingPasswordChange = false
+                        resetPasswordFields()
+                    }
+                    
+                    Button("Save") {
+                        handlePasswordChange()
+                    }
+                }
+                .padding()
+            }
+            .frame(width: 300, height: 250)
+            .padding()
+        }
+        .sheet(isPresented: $showingPasswordInput) {
+            VStack(spacing: 20) {
+                Text("Enter Password")
+                    .font(.title)
+                    .padding(.top)
+                
+                SecureField("Password", text: $currentPassword)
+                
+                HStack {
+                    Button("Cancel") {
+                        showingPasswordInput = false
+                        currentPassword = ""
+                    }
+                    
+                    Button("Save") {
+                        Task {
+                            if await PasswordManager.shared.validate(currentPassword) {
+                                saveLimits()
+                                showingPasswordInput = false
+                                currentPassword = ""
+                            } else {
+                                showError("Invalid password")
+                            }
+                        }
+                    }
+                }
+                .padding()
+            }
+            .frame(width: 300, height: 200)
+            .padding()
         }
     }
     
-    private func promptForNewPassword() {
-        let alert = NSAlert()
-        alert.messageText = PasswordStore.shared.hasPassword() ? "Change Password" : "Set Password"
-        alert.informativeText = "Enter new password:"
-        
-        let stackView = NSStackView(frame: NSRect(x: 0, y: 0, width: 200, height: 54))
-        stackView.orientation = .vertical
-        stackView.spacing = 6
-        
-        let newPasswordField = NSSecureTextField(frame: NSRect(x: 0, y: 30, width: 200, height: 24))
-        let confirmPasswordField = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
-        
-        stackView.addArrangedSubview(newPasswordField)
-        stackView.addArrangedSubview(confirmPasswordField)
-        
-        alert.accessoryView = stackView
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Cancel")
-        
-        alert.beginSheetModal(for: window!) { response in
-            if response == .alertFirstButtonReturn {
-                let newPassword = newPasswordField.stringValue
-                let confirmPassword = confirmPasswordField.stringValue
-                
-                if newPassword.isEmpty {
-                    self.showError("Password cannot be empty")
-                } else if newPassword != confirmPassword {
-                    self.showError("Passwords do not match")
-                } else if PasswordStore.shared.setPassword(newPassword) {
-                    let successAlert = NSAlert()
-                    successAlert.messageText = "Success"
-                    successAlert.informativeText = "Password set successfully"
-                    successAlert.alertStyle = .informational
-                    successAlert.runModal()
-                } else {
-                    self.showError("Failed to save password")
-                }
-            }
-        }
+    private func resetPasswordFields() {
+        currentPassword = ""
+        newPassword = ""
+        confirmPassword = ""
     }
     
     private func showError(_ message: String) {
+        errorMessage = message
         let alert = NSAlert()
         alert.messageText = "Error"
         alert.informativeText = message
         alert.alertStyle = .critical
+        alert.addButton(withTitle: "OK")
         alert.runModal()
     }
     
-    @objc private func handleSaveAction() {
-        let alert = NSAlert()
-        alert.messageText = "Enter Password"
-        alert.informativeText = "Please enter the admin password to save changes:"
-        alert.addButton(withTitle: "OK")
-        alert.addButton(withTitle: "Cancel")
-        
-        let input = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
-        alert.accessoryView = input
-        
-        alert.beginSheetModal(for: window!) { response in
-            if response == .alertFirstButtonReturn {
-                Task {
-                    if await PasswordManager.shared.validate(input.stringValue) {
-                        self.saveChanges()
-                    } else {
-                        let errorAlert = NSAlert()
-                        errorAlert.messageText = "Invalid Password"
-                        errorAlert.informativeText = "The password you entered is incorrect"
-                        errorAlert.alertStyle = .critical
-                        errorAlert.runModal()
-                    }
-                }
+    private func handlePasswordChange() {
+        if PasswordStore.shared.hasPassword() {
+            // Verify current password
+            if !PasswordStore.shared.verifyPassword(currentPassword) {
+                showError("Current password is incorrect")
+                return
             }
+        }
+        
+        // Validate new password
+        if newPassword.isEmpty {
+            showError("Password cannot be empty")
+            return
+        }
+        
+        if newPassword != confirmPassword {
+            showError("Passwords do not match")
+            return
+        }
+        
+        // Save new password
+        if PasswordStore.shared.setPassword(newPassword) {
+            showingPasswordChange = false
+            resetPasswordFields()
+        } else {
+            showError("Failed to save password")
         }
     }
     
-    private func saveChanges() {
-        guard let weekdayValue = Double(weekdayField.stringValue),
-              let weekendValue = Double(weekendField.stringValue) else {
-            showError("Please enter valid numbers")
+    private func saveLimits() {
+        guard let weekdayValue = Double(weekdayLimit),
+              let weekendValue = Double(weekendLimit) else {
+            showError("Invalid time values")
             return
         }
         
@@ -226,11 +275,5 @@ class SettingsWindowController: NSWindowController {
         
         timeScheduler.weekdayLimit.update(value: weekdayValue)
         timeScheduler.weekendLimit.update(value: weekendValue)
-        
-        let successAlert = NSAlert()
-        successAlert.messageText = "Success"
-        successAlert.informativeText = "Time limits saved successfully"
-        successAlert.alertStyle = .informational
-        successAlert.runModal()
     }
 } 

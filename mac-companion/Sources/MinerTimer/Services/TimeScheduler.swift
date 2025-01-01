@@ -9,6 +9,8 @@ class TimeScheduler: ObservableObject {
     @Published var weekdayLimit: TimeValue
     @Published var weekendLimit: TimeValue
     private var lastCheck: Date
+    private var lastMQTTUpdate: Date = Date()
+    private let mqttUpdateInterval: TimeInterval = 60  // 1 minute
     
     static let shared = TimeScheduler()
     
@@ -67,18 +69,32 @@ class TimeScheduler: ObservableObject {
             Task { @MainActor in
                 guard let self = weakSelf else { return }
                 
-                // Only need to check processMonitor since playedTime is non-optional
+                // Check and update process state
                 if let monitor = self.processMonitor {
-                    await monitor.updatePlayedTime(playedTime: self.playedTime)
-                    let running = monitor.monitoredProcess?.state == .running
-                    if Int(self.playedTime.value) >= Int(self.currentLimit.value) && running {
-                        Logger.shared.log("🔄 Time limit reached (\(Int(self.playedTime.value)) >= \(Int(self.currentLimit.value)))")
-                        monitor.suspendProcess()
-                    } else if Int(self.playedTime.value) < Int(self.currentLimit.value) && !running  {
-                        Logger.shared.log("🔄 You now have more time (\(Int(self.playedTime.value)) < \(Int(self.currentLimit.value)))")
-                        monitor.resumeProcess()
-                    } else {
-                        Logger.shared.log("🔄 No time limit reached (\(Int(self.playedTime.value)) < \(Int(self.currentLimit.value)))")
+                    await monitor.checkAndUpdateProcess()
+                    
+                    // Update time if process is running
+                    if let process = monitor.monitoredProcess, process.state == .running {
+                        self.updatePlayedTime()
+                        
+                        // Update MQTT if needed
+                        let now = Date()
+                        if now.timeIntervalSince(self.lastMQTTUpdate) >= self.mqttUpdateInterval {
+                            self.lastMQTTUpdate = now
+                            HomeAssistantClient.shared.publish_to_HA(self.playedTime)
+                        }
+                        
+                        // Check time limits
+                        if Int(self.playedTime.value) >= Int(self.currentLimit.value) {
+                            Logger.shared.log("🔄 Time limit reached (\(Int(self.playedTime.value)) >= \(Int(self.currentLimit.value)))")
+                            monitor.suspendProcess()
+                        }
+                    } else if let process = monitor.monitoredProcess, process.state == .suspended {
+                        // Check if we can resume
+                        if Int(self.playedTime.value) < Int(self.currentLimit.value) {
+                            Logger.shared.log("🔄 You now have more time (\(Int(self.playedTime.value)) < \(Int(self.currentLimit.value)))")
+                            monitor.resumeProcess()
+                        }
                     }
                 }
             }
@@ -91,7 +107,7 @@ class TimeScheduler: ObservableObject {
     deinit {
         timer?.invalidate()
     }
-
+    
     @MainActor
     private func updatePlayedTime() {
         // Check if we've crossed midnight since last update
@@ -102,6 +118,7 @@ class TimeScheduler: ObservableObject {
         if lastCheck < midnight {
             Logger.shared.log("🔄 Crossed midnight, resetting played time")
             playedTime.update(value: 0)
+            resetForNewDay()
             lastCheck = Date()
             return
         }
@@ -110,10 +127,39 @@ class TimeScheduler: ObservableObject {
         playedTime.update(value: playedTime.value + (elapsed / 60))
         lastCheck = Date()
     }
-
+    
     func addTime(_ minutes: TimeInterval) {
         Logger.shared.log("Adding \(minutes) minutes to current limit (\(currentLimit.value))")
         currentLimit.update(value: currentLimit.value + minutes)
+    }
+    
+    func resetTime() {
+        Logger.shared.log("Resetting played time to 0")
+        playedTime.update(value: 0)
+    }
+    
+    func simulateMidnight() {
+        Logger.shared.log("Simulating midnight reset")
+        resetForNewDay()
+    }
+    
+    private func resetForNewDay() {
+        Logger.shared.log("Resetting limits for new day")
+        
+        // Get base value from current day type
+        let baseValue = if Calendar.current.isDateInWeekend(Date()) {
+            weekendLimit.value
+        } else {
+            weekdayLimit.value
+        }
+        
+        Logger.shared.log("Updating current limit to: \(baseValue)")
+        currentLimit.update(value: baseValue)
+    }
+    
+    func requestMoreTime() {
+        Logger.shared.log("Requesting more time")
+        currentLimit.update(value: currentLimit.value + 30)
     }
 } 
 

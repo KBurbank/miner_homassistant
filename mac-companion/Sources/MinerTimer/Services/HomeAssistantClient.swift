@@ -7,20 +7,39 @@ import Logging
 public class HomeAssistantClient: @unchecked Sendable {
     static let shared = HomeAssistantClient()
     private var client: MQTTClient?
-    private weak var monitor: ProcessMonitor?
     private weak var timeScheduler: TimeScheduler?
     private let discoveryPrefix = "homeassistant"
     private let deviceId = "minertimer_mac"
     private var lastPublishedValues: [String: Double] = [:]
     private var lastMQTTUpdate: Date = Date()
     private let updateInterval: TimeInterval = 60
+    private var isConnected = false
+    private var eventLoopGroup: EventLoopGroup?
+    private var config: MQTTConfig
     
     private init() {
-        setupMQTT()
+        self.config = MQTTConfig.load()
+        if config.isEnabled {
+            setupMQTT()
+        }
     }
     
-    func setMonitor(_ monitor: ProcessMonitor) {
-        self.monitor = monitor
+    func updateConfig(_ newConfig: MQTTConfig) {
+        config = newConfig
+        
+        // Disconnect if MQTT is disabled
+        if !config.isEnabled {
+            client?.disconnect()
+            client = nil
+            isConnected = false
+            try? eventLoopGroup?.syncShutdownGracefully()
+            eventLoopGroup = nil
+            return
+        }
+        
+        // Reconnect with new settings if MQTT is enabled
+        client?.disconnect()
+        setupMQTT()
     }
     
     func setTimeScheduler() {
@@ -28,26 +47,71 @@ public class HomeAssistantClient: @unchecked Sendable {
     }
     
     private func setupMQTT() {
+        guard config.isEnabled else { return }
+        
         Logger.shared.log("Setting up MQTT connection...")
         
-        let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         
-        let config = MQTTConfiguration(
-            target: .host("homeassistant", port: 1883),
+        let host = config.host
+        let port = config.port
+        let useAuth = config.useAuthentication
+        let username = config.username
+        let password = config.password
+        
+        var mqttConfig = MQTTConfiguration(
+            target: .host(host, port: port),
             clientId: "minertimer-mac-\(UUID().uuidString)",
             clean: true,
-            credentials: MQTTConfiguration.Credentials(
-                username: "mosq_user",
-                password: "mosq_user_pass"
-            )
+            keepAliveInterval: .seconds(30),
+            connectionTimeoutInterval: .seconds(10)
         )
         
+        if useAuth {
+            mqttConfig.credentials = MQTTConfiguration.Credentials(
+                username: username,
+                password: password
+            )
+        }
+        
+        guard let eventLoopGroup = eventLoopGroup else { return }
+        
         let client = MQTTClient(
-            configuration: config,
+            configuration: mqttConfig,
             eventLoopGroup: eventLoopGroup
         )
         
-        client.connect().whenComplete { [weak self] result in
+        // Set up connection status monitoring
+        client.whenConnected { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.isConnected = true
+                Logger.shared.log("✅ MQTT Connected to \(host):\(port)")
+            }
+        }
+        
+        client.whenDisconnected { [weak self] reason in
+            Task { @MainActor [weak self] in
+                self?.isConnected = false
+                Logger.shared.log("❌ MQTT Disconnected from \(host): \(reason)")
+                // Try to reconnect after a delay
+                try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
+                self?.reconnect()
+            }
+        }
+        
+        self.client = client
+        connect()
+    }
+    
+    private func connect() {
+        guard config.isEnabled else { return }
+        
+        let host = config.host
+        let port = config.port
+        
+        Logger.shared.log("🔄 Connecting to MQTT at \(host):\(port)...")
+        
+        client?.connect().whenComplete { [weak self] result in
             switch result {
             case .success:
                 Logger.shared.log("✅ Connected to MQTT broker")
@@ -57,7 +121,7 @@ public class HomeAssistantClient: @unchecked Sendable {
                     
                     do {
                         // Set up message handler first
-                        client.whenMessage { [weak self] message in
+                        client?.whenMessage { [weak self] message in
                             Task { @MainActor [weak self] in
                                 self?.handleMessage(message)
                             }
@@ -66,7 +130,7 @@ public class HomeAssistantClient: @unchecked Sendable {
                         Logger.shared.log("Subscribing to set topics...")
                         
                         // Only subscribe to set topics
-                        try await client.subscribe(
+                        try await client?.subscribe(
                             to: [
                                 .init(topicFilter: "minertimer/+/set", qos: .atMostOnce)
                             ]
@@ -83,15 +147,35 @@ public class HomeAssistantClient: @unchecked Sendable {
                 }
                 
             case .failure(let error):
-                Logger.shared.log("❌ Failed to connect to MQTT: \(error)")
+                Logger.shared.log("❌ Failed to connect to MQTT at \(host): \(error)")
+                // Try to reconnect after a delay
+                Task { @MainActor [weak self] in
+                    try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
+                    self?.reconnect()
+                }
             }
         }
+    }
+    
+    private func reconnect() {
+        guard config.isEnabled else { return }
         
-        self.client = client
+        Logger.shared.log("🔄 Attempting to reconnect to MQTT...")
+        connect()
+    }
+    
+    deinit {
+        client?.disconnect()
+        try? eventLoopGroup?.syncShutdownGracefully()
     }
     
     private func publishDiscoveryConfig() async {
-        guard let client = client else { return }
+        guard let client = client, isConnected, config.isEnabled else {
+            Logger.shared.log("❌ Cannot publish discovery config: not connected")
+            return
+        }
+        
+        Logger.shared.log("📢 Publishing MQTT discovery config...")
         
         // Common device config
         let deviceConfig: [String: Any] = [
@@ -114,19 +198,21 @@ public class HomeAssistantClient: @unchecked Sendable {
             ]
             
             if type == "number" {
-                // Only add these for editable number entities. they need to be between 0 and 1440, which is 24 hours in minutes.
+                // Only add these for editable number entities
                 if timeValue.mqttTopic != "played_time" {
                     config["command_topic"] = timeValue.setTopic
                     config["min"] = min ?? 0
-                    config["max"] = max ?? 1440
+                    config["max"] = max ?? 1440  // 24 hours in minutes
                 }
             }
             
             if let jsonData = try? JSONSerialization.data(withJSONObject: config),
                let jsonString = String(data: jsonData, encoding: .utf8) {
+                let topic = "\(discoveryPrefix)/\(type)/\(deviceId)/\(timeValue.mqttTopic)/config"
+                Logger.shared.log("📢 Publishing config to \(topic)")
                 client.publish(
                     .init(
-                        topic: "\(discoveryPrefix)/\(type)/\(deviceId)/\(timeValue.mqttTopic)/config",
+                        topic: topic,
                         payload: .string(jsonString),
                         qos: .atLeastOnce,
                         retain: true
@@ -140,10 +226,14 @@ public class HomeAssistantClient: @unchecked Sendable {
         publishEntityConfig(name: "Weekday Limit", timeValue: TimeValue.create(kind: .weekday))
         publishEntityConfig(name: "Weekend Limit", timeValue: TimeValue.create(kind: .weekend))
         publishEntityConfig(name: "Played Time", timeValue: TimeValue.create(kind: .played), type: "sensor")
+        
+        Logger.shared.log("✅ Discovery config published")
     }
     
     @MainActor
     private func handleMessage(_ message: MQTTMessage) {
+        Logger.shared.log("📥 Received MQTT message: \(message.topic)")
+        
         // Extract baseKey from topic
         let components = message.topic.split(separator: "/")
         guard components.count >= 3 else { return }
@@ -160,10 +250,7 @@ public class HomeAssistantClient: @unchecked Sendable {
             return
         }
         
-        // For retained messages, we'll rely on the timestamp in the payload
-        // which is checked in parsePayload
-        
-        Logger.shared.log("Received user change from HA: \(message.topic) = \(value)")
+        Logger.shared.log("📝 Received user change from HA: \(message.topic) = \(value)")
         
         // Find matching kind from baseKey
         guard let kind = TimeValueKind.allCases.first(where: { 
@@ -231,10 +318,27 @@ public class HomeAssistantClient: @unchecked Sendable {
         return Double(str)
     }
     
+    func publish_to_HA(_ timeValue: TimeValue) {
+        guard isConnected, config.isEnabled else {
+            Logger.shared.log("❌ Cannot publish: MQTT not enabled or not connected")
+            return
+        }
+        
+        let now = Date()
+        if now.timeIntervalSince(lastMQTTUpdate) >= updateInterval {
+            publish(timeValue.value, to: timeValue)
+            lastMQTTUpdate = now
+        }
+    }
+    
     private func publish(_ value: TimeInterval, to timeValue: TimeValue) {
-        guard let client = client else { return }
+        guard let client = client, isConnected, config.isEnabled else {
+            Logger.shared.log("❌ Cannot publish: MQTT not enabled or not connected")
+            return
+        }
         
         let publishTopic = timeValue.stateTopic
+        Logger.shared.log("📤 Publishing to \(publishTopic): \(value)")
         
         // Send numeric value with timestamp in properties
         client.publish(
@@ -253,71 +357,6 @@ public class HomeAssistantClient: @unchecked Sendable {
                 )
             )
         )
-    }
-    
-    func publish_to_HA(_ timeValue: TimeValue) {
-        publish(timeValue.value, to: timeValue)
-    }
-    
-    @MainActor
-    func subscribe_to_HA() {
-        guard let timeScheduler = timeScheduler else {
-            Logger.shared.log("⚠️ TimeScheduler not set")
-            return
-        }
-        
-        // Only subscribe to limit changes, not played time
-        let topics = [
-            timeScheduler.currentLimit.setTopic,
-            timeScheduler.weekdayLimit.setTopic,
-            timeScheduler.weekendLimit.setTopic
-        ]
-        
-        for topic in topics {
-            Logger.shared.log("🔔 Subscribing to \(topic)")
-            client?.subscribe(to: [.init(topicFilter: topic, qos: .atMostOnce)])
-        }
-    }
-    
-    @MainActor
-    func handle_message(_ topic: String, _ message: String) {
-        guard let timeScheduler = timeScheduler else {
-            Logger.shared.log("⚠️ TimeScheduler not set")
-            return
-        }
-        
-        guard let value = Double(message) else {
-            Logger.shared.log("❌ Invalid message format: \(message)")
-            return
-        }
-        
-        // Don't handle updates to played_time
-        if topic == timeScheduler.playedTime.setTopic {
-            Logger.shared.log("⏭️ Ignoring played_time update from HA")
-            return
-        }
-        
-        // Handle other updates...
-        if topic == timeScheduler.currentLimit.setTopic {
-            timeScheduler.currentLimit.updateFromMQTT(value: value)
-        } else if topic == timeScheduler.weekdayLimit.setTopic {
-            timeScheduler.weekdayLimit.updateFromMQTT(value: value)
-        } else if topic == timeScheduler.weekendLimit.setTopic {
-            timeScheduler.weekendLimit.updateFromMQTT(value: value)
-        }
-    }
-    
-    func updatePlayedTime(_ value: TimeInterval) {
-        // Only send MQTT update if enough time has passed
-        let now = Date()
-        guard now.timeIntervalSince(lastMQTTUpdate) >= updateInterval else {
-            return
-        }
-        
-        lastMQTTUpdate = now
-        
-        // Use existing publish method with TimeValue
-        publish(value, to: TimeValue.create(kind: .played))
     }
 }
 

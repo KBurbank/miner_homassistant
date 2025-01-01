@@ -1,8 +1,6 @@
 import Foundation
 
-
-// This is the class that monitors the process (e.g. Minecraft)
-
+// This class monitors the process (e.g. Minecraft)
 @MainActor
 public class ProcessMonitor: ObservableObject {
     public struct MonitoredProcess {
@@ -18,87 +16,14 @@ public class ProcessMonitor: ObservableObject {
     }
     
     @Published private(set) var monitoredProcess: MonitoredProcess?
-    @Published public var timeLimit: (current: TimeLimits, weekday: TimeLimits, weekend: TimeLimits)
-    private var lastCheck = Date()
-    private var currentPlayedTime: TimeValue?
-    private var lastMQTTUpdate: Date = Date()
-    private let mqttUpdateInterval: TimeInterval = 60  // 1 minute
     
     init() {
         Logger.shared.log("🔨 Creating ProcessMonitor")
-        let (current, weekday, weekend) = TimeLimits.create()
-        self.timeLimit = (current, weekday, weekend)
         Logger.shared.log("🔨 ProcessMonitor created")
     }
     
     @MainActor
-    func updatePlayedTime(playedTime: TimeValue) async {
-        Logger.shared.log("⏱️ ProcessMonitor.updatePlayedTime called")
-        self.currentPlayedTime = playedTime
-        
-        // Check for Java process
-        checkProcesses()
-        
-        // Only update time if process is running
-        if let process = monitoredProcess, process.state == .running {
-            let elapsed = Date().timeIntervalSince(lastCheck)
-            playedTime.update(value: playedTime.value + (elapsed / 60))
-            
-            // Only update MQTT if enough time has passed
-            let now = Date()
-            if now.timeIntervalSince(lastMQTTUpdate) >= mqttUpdateInterval {
-                lastMQTTUpdate = now
-                HomeAssistantClient.shared.publish_to_HA(playedTime)
-            }
-        }
-        
-        lastCheck = Date()
-    }
-    
-    
-    public func addTime(_ minutes: TimeInterval) {
-        if case .current(let currentValue) = timeLimit.current {
-            Logger.shared.log("Adding \(minutes) minutes to current limit (\(currentValue.value))")
-            currentValue.update(value: currentValue.value + minutes)
-        }
-    }
-    
-    public func resetTime() {
-        Logger.shared.log("Resetting played time to 0")
-        currentPlayedTime?.update(value: 0)
-    }
-    
-    public func simulateMidnight() {
-        Logger.shared.log("Simulating midnight reset")
-        resetForNewDay()
-    }
-    
-    public func resetForNewDay() {
-        Logger.shared.log("Resetting limits for new day")
-        
-        // Get base value from current day type
-        let baseValue = if case .weekday(let value) = timeLimit.weekday {
-            value.value
-        } else if case .weekend(let value) = timeLimit.weekend {
-            value.value
-        } else {
-            60.0 // Default value
-        }
-        
-        if case .current(let currentValue) = timeLimit.current {
-            Logger.shared.log("Updating current limit to: \(baseValue)")
-            currentValue.update(value: baseValue)
-        }
-    }
-    
-    public func requestMoreTime() {
-        Logger.shared.log("Requesting more time")
-        if case .current(let currentValue) = timeLimit.current {
-            currentValue.update(value: currentValue.value + 30)
-        }
-    }
-    
-    internal func checkProcesses() {
+    func checkAndUpdateProcess() {
         Logger.shared.log("🔍 ProcessMonitor: Starting process check...")
         let task = Process()
         task.launchPath = "/usr/bin/pgrep"
@@ -148,7 +73,7 @@ public class ProcessMonitor: ObservableObject {
     }
     
     func suspendProcess() {
-        guard var process = monitoredProcess else {
+        guard let process = monitoredProcess else {
             Logger.shared.log("❌ No process to suspend")
             return
         }
@@ -167,7 +92,7 @@ public class ProcessMonitor: ObservableObject {
     }
     
     func resumeProcess() {
-        guard var process = monitoredProcess else {
+        guard let process = monitoredProcess else {
             Logger.shared.log("❌ No process to resume")
             return
         }

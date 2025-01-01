@@ -1,7 +1,6 @@
-import Foundation
+import Cocoa
 
-Task { @MainActor in
-    MinerTimerApp.main()
-}
-
-RunLoop.main.run() 
+let app = NSApplication.shared
+let delegate = AppDelegate()
+app.delegate = delegate
+_ = NSApplicationMain(CommandLine.argc, CommandLine.unsafeArgv) 
