@@ -11,11 +11,12 @@ class TimeScheduler: ObservableObject {
     private var lastCheck: Date
     private var lastMQTTUpdate: Date = Date()
     private let mqttUpdateInterval: TimeInterval = 60  // 1 minute
+    private var haClient: HomeAssistantClient?
     
-    static let shared = TimeScheduler()
-    
-    init() {
+    init(processMonitor: ProcessMonitor? = nil, haClient: HomeAssistantClient? = nil) {
         Logger.shared.log("⏰ TimeScheduler initializing...")
+        self.processMonitor = processMonitor
+        self.haClient = haClient
         self.playedTime = TimeValue.create(kind: .played)
         self.lastCheck = Date()
         (self.currentLimit, self.weekdayLimit, self.weekendLimit) = TimeValue.createTimeLimits()
@@ -50,12 +51,20 @@ class TimeScheduler: ObservableObject {
         }
         
         Logger.shared.log("⏰ TimeScheduler initialized")
+        
+        if processMonitor != nil {
+            startTimer()
+        }
     }
     
     func setProcessMonitor(_ monitor: ProcessMonitor) {
         Logger.shared.log("🔄 Setting ProcessMonitor in TimeScheduler")
         self.processMonitor = monitor
         startTimer()
+    }
+    
+    func setHomeAssistantClient(_ client: HomeAssistantClient) {
+        self.haClient = client
     }
     
     private func startTimer() {
@@ -81,7 +90,9 @@ class TimeScheduler: ObservableObject {
                         let now = Date()
                         if now.timeIntervalSince(self.lastMQTTUpdate) >= self.mqttUpdateInterval {
                             self.lastMQTTUpdate = now
-                            HomeAssistantClient.shared.publish_to_HA(self.playedTime)
+                            if let haClient = self.haClient {
+                                haClient.publish_to_HA(self.playedTime)
+                            }
                         }
                         
                         // Check time limits

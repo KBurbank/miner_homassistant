@@ -2,90 +2,92 @@ import SwiftUI
 import AppKit
 
 struct MQTTConfigSheet: View {
-    @Binding var config: MQTTConfig
     @Environment(\.presentationMode) var presentationMode
-    
-    // Local state for form
-    @State private var host: String
-    @State private var port: String
-    @State private var useAuthentication: Bool
-    @State private var username: String
-    @State private var password: String
-    
-    init(config: Binding<MQTTConfig>) {
-        self._config = config
-        
-        // Initialize local state from config
-        _host = State(initialValue: config.wrappedValue.host)
-        _port = State(initialValue: String(config.wrappedValue.port))
-        _useAuthentication = State(initialValue: config.wrappedValue.useAuthentication)
-        _username = State(initialValue: config.wrappedValue.username)
-        _password = State(initialValue: config.wrappedValue.password)
-    }
+    @State var config: MQTTConfig
+    @State private var showingError = false
+    @State private var errorMessage = ""
     
     var body: some View {
         VStack(spacing: 20) {
             Text("MQTT Configuration")
                 .font(.title)
-                .padding(.top)
             
             Form {
-                Section(header: Text("Connection Settings")) {
-                    TextField("Host (e.g. homeassistant)", text: $host)
-                    TextField("Port", text: Binding(
-                        get: { port },
-                        set: { newValue in
-                            // Only allow numbers
-                            port = newValue.filter { $0.isNumber }
-                        }
-                    ))
-                }
-                
-                Section(header: Text("Authentication")) {
-                    Toggle("Use Authentication", isOn: $useAuthentication)
-                    
-                    if useAuthentication {
-                        HStack {
-                            Text("Username:")
-                            MacTextField(text: $username)
-                        }
-                        HStack {
-                            Text("Password:")
-                            MacSecureField(text: $password)
-                        }
-                    }
+                TextField("Host", text: $config.host)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                TextField("Port", value: $config.port, formatter: NumberFormatter())
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                Toggle("Use Authentication", isOn: $config.useAuthentication)
+                if config.useAuthentication {
+                    TextField("Username", text: $config.username)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                    SecureField("Password", text: $config.password)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
                 }
             }
-            .padding()
+            .padding(.horizontal, 40)
+            .padding(.vertical, 20)
             
-            HStack {
+            HStack(spacing: 20) {
                 Button("Cancel") {
                     presentationMode.wrappedValue.dismiss()
                 }
                 
                 Button("Save") {
                     saveConfig()
-                    presentationMode.wrappedValue.dismiss()
                 }
             }
-            .padding(.bottom)
+            .padding()
         }
-        .frame(width: 400, height: 400)
+        .frame(width: 500, height: 500)
+        .alert(isPresented: $showingError) {
+            Alert(
+                title: Text("Error"),
+                message: Text(errorMessage),
+                dismissButton: .default(Text("OK"))
+            )
+        }
     }
     
     private func saveConfig() {
-        // Update config with form values
-        config.host = host
-        config.port = Int(port) ?? 1883
-        config.useAuthentication = useAuthentication
-        config.username = username
-        config.password = password
+        // Validate config
+        if config.isEnabled {
+            if config.host.isEmpty {
+                errorMessage = "Host cannot be empty"
+                showingError = true
+                return
+            }
+            
+            if config.port <= 0 {
+                errorMessage = "Port must be greater than 0"
+                showingError = true
+                return
+            }
+            
+            if config.useAuthentication {
+                if config.username.isEmpty {
+                    errorMessage = "Username cannot be empty when authentication is enabled"
+                    showingError = true
+                    return
+                }
+                if config.password.isEmpty {
+                    errorMessage = "Password cannot be empty when authentication is enabled"
+                    showingError = true
+                    return
+                }
+            }
+        }
         
-        // Save to disk
+        // Save config
         config.save()
         
         // Update HomeAssistantClient
-        HomeAssistantClient.shared.updateConfig(config)
+        if let appDelegate = NSApp.delegate as? AppDelegate,
+           let haClient = appDelegate.haClient {
+            haClient.updateConfig(config)
+        }
+        
+        presentationMode.wrappedValue.dismiss()
     }
 }
 

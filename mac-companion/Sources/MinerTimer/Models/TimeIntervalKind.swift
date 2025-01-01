@@ -14,66 +14,34 @@ public enum TimeValueKind: CaseIterable {
     case played
     case timeRequest
     
-    var config: (baseKey: String, isBaseLimit: Bool, name: String) {
+    var config: TimeValueConfig {
         switch self {
-            case .current:     return ("time_limit", false, "Current Limit")
-            case .weekday:     return ("weekday_limit", true, "Weekday Limit")
-            case .weekend:     return ("weekend_limit", true, "Weekend Limit")
-            case .played:      return ("played_time", false, "Time Played")
-            case .timeRequest: return ("time_request", false, "Time Request")
+        case .current:
+            return TimeValueConfig(baseKey: "current_limit", isBaseLimit: false, name: "Current Limit")
+        case .weekday:
+            return TimeValueConfig(baseKey: "weekday_limit", isBaseLimit: true, name: "Weekday Limit")
+        case .weekend:
+            return TimeValueConfig(baseKey: "weekend_limit", isBaseLimit: true, name: "Weekend Limit")
+        case .played:
+            return TimeValueConfig(baseKey: "played_time", isBaseLimit: false, name: "Played Time")
+        case .timeRequest:
+            return TimeValueConfig(baseKey: "time_request", isBaseLimit: false, name: "Time Request")
         }
     }
-}
-
-// MARK: - TimeValue Factory Methods
-
-extension TimeValue {
-    static func create(kind: TimeValueKind, value: TimeInterval = 0) -> TimeValue {
-        let config = kind.config
-        
+    
+    static func create(_ kind: TimeValueKind, value: TimeInterval = 0) -> TimeValue {
         // Try to load saved value first
-        if let savedValue = loadFromDefaults(key: config.baseKey) {
-            return savedValue
+        if let savedValue = UserDefaults.standard.object(forKey: kind.config.baseKey) as? Double {
+            return TimeValue(kind: kind, value: savedValue)
         }
         
         // Create new with default value if no saved value exists
-        return TimeValue(value: value, 
-                        baseKey: config.baseKey, 
-                        isBaseLimit: config.isBaseLimit, 
-                        name: config.name)
+        return TimeValue(kind: kind, value: value)
     }
-    
-    @MainActor
-    static func createTimeLimits() -> (current: TimeValue, weekday: TimeValue, weekend: TimeValue) {
-        let weekday = TimeValue.create(kind: .weekday)
-        let weekend = TimeValue.create(kind: .weekend)
-        let current = TimeValue.create(kind: .current)
-        
-        // Check if we need to reset current limit
-        let defaults = UserDefaults.standard
-        let lastCloseTime = defaults.double(forKey: "last_close_time")
-        
-        if lastCloseTime > 0 {
-            let lastClose = Date(timeIntervalSince1970: lastCloseTime)
-            // Get midnight of today in local time zone
-            var calendar = Calendar.current
-            calendar.timeZone = TimeZone.current
-            let midnight = calendar.startOfDay(for: Date())
-            
-            // Only update current limit if last close was before midnight
-            if lastClose < midnight {
-                Logger.shared.log("🔄 Last close was before midnight (local time), updating current limit")
-                let baseValue = calendar.isWeekend(Date()) ? weekend.value : weekday.value
-                current.update(value: baseValue)
-            } else {
-                Logger.shared.log("✋ Last close was today (after local midnight), keeping current limit")
-            }
-        } else {
-            Logger.shared.log("🆕 No last close time found, setting initial current limit")
-            let baseValue = Calendar.current.isWeekend(Date()) ? weekend.value : weekday.value
-            current.update(value: baseValue)
-        }
-        
-        return (current, weekday, weekend)
-    }
+}
+
+struct TimeValueConfig {
+    let baseKey: String
+    let isBaseLimit: Bool
+    let name: String
 } 

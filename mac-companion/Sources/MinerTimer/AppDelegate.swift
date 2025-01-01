@@ -5,7 +5,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor public private(set) var processMonitor: ProcessMonitor!
     @MainActor private var statusBar: StatusBarManager!
     private var window: NSWindow!
-    @MainActor private var haClient: HomeAssistantClient!
+    @MainActor public private(set) var haClient: HomeAssistantClient!
+    @MainActor public private(set) var timeScheduler: TimeScheduler!
     private var settingsWindowController: SettingsWindowController?
     private var isInitialized = false
     
@@ -58,28 +59,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         Task { @MainActor in
-            // Initialize components
+            // Initialize components in the correct order
             processMonitor = ProcessMonitor()
             Logger.shared.log("🔨 Created ProcessMonitor")
             
-            // Set up TimeScheduler with ProcessMonitor
-            Logger.shared.log("🔄 Setting ProcessMonitor in TimeScheduler")
-            await TimeScheduler.shared.setProcessMonitor(processMonitor)
+            // Create HomeAssistant client first
+            haClient = HomeAssistantClient()
             
-            // Set up HomeAssistant client
-            haClient = HomeAssistantClient.shared
-            await haClient.setTimeScheduler()
+            // Create TimeScheduler with its dependencies
+            timeScheduler = TimeScheduler(processMonitor: processMonitor, haClient: haClient)
+            
+            // Set up bidirectional references
+            haClient.setTimeScheduler(timeScheduler)
             
             // Create the status bar
-            statusBar = StatusBarManager(monitor: processMonitor)
+            statusBar = StatusBarManager(monitor: processMonitor, timeScheduler: timeScheduler)
             
             // Create the window
             let contentView = ContentView(
-                processMonitor: processMonitor
+                processMonitor: processMonitor,
+                timeScheduler: timeScheduler
             )
             
             window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 480, height: 300),
+                contentRect: NSRect(x: 0, y: 0, width: 600, height: 400),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable],
                 backing: .buffered,
                 defer: false
@@ -102,12 +105,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
-    @objc func showSettings() {
+    @MainActor @objc func showSettings() {
         guard isInitialized else { return }
         
         Logger.shared.log("Settings requested")
         if settingsWindowController == nil {
-            settingsWindowController = SettingsWindowController()
+            settingsWindowController = SettingsWindowController(timeScheduler: timeScheduler, haClient: haClient)
         }
         settingsWindowController?.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)

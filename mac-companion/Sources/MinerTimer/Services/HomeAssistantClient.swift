@@ -5,7 +5,6 @@ import Logging
 
 @MainActor
 public class HomeAssistantClient: @unchecked Sendable {
-    static let shared = HomeAssistantClient()
     private var client: MQTTClient?
     private weak var timeScheduler: TimeScheduler?
     private let discoveryPrefix = "homeassistant"
@@ -17,11 +16,15 @@ public class HomeAssistantClient: @unchecked Sendable {
     private var eventLoopGroup: EventLoopGroup?
     private var config: MQTTConfig
     
-    private init() {
-        self.config = MQTTConfig.load()
+    init(config: MQTTConfig = MQTTConfig.load()) {
+        self.config = config
         if config.isEnabled {
             setupMQTT()
         }
+    }
+    
+    func setTimeScheduler(_ scheduler: TimeScheduler) {
+        self.timeScheduler = scheduler
     }
     
     func updateConfig(_ newConfig: MQTTConfig) {
@@ -40,10 +43,6 @@ public class HomeAssistantClient: @unchecked Sendable {
         // Reconnect with new settings if MQTT is enabled
         client?.disconnect()
         setupMQTT()
-    }
-    
-    func setTimeScheduler() {
-        self.timeScheduler = TimeScheduler.shared
     }
     
     private func setupMQTT() {

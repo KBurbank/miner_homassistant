@@ -3,33 +3,65 @@ import SwiftUI
 @available(macOS 10.15, *)
 struct ContentView: View {
     @ObservedObject var processMonitor: ProcessMonitor
-    @ObservedObject private var timeScheduler = TimeScheduler.shared
-    private let relativeDateFormatter = RelativeDateTimeFormatter()
+    @ObservedObject var timeScheduler: TimeScheduler
+    @ObservedObject var playedTime: TimeValue
+    @ObservedObject var currentLimit: TimeValue
+    
+    init(processMonitor: ProcessMonitor, timeScheduler: TimeScheduler) {
+        self.processMonitor = processMonitor
+        self.timeScheduler = timeScheduler
+        self.playedTime = timeScheduler.playedTime
+        self.currentLimit = timeScheduler.currentLimit
+    }
+    
+    private var timeRemaining: Int {
+        Int(currentLimit.value - playedTime.value)
+    }
     
     var body: some View {
-        VStack {
-            TimeDisplay(
-                name: "Current Limit",
-                timeValue: timeScheduler.currentLimit,
-                relativeDateFormatter: relativeDateFormatter
-            )
-            TimeDisplay(
-                name: "Weekday Limit",
-                timeValue: timeScheduler.weekdayLimit,
-                relativeDateFormatter: relativeDateFormatter
-            )
-            TimeDisplay(
-                name: "Weekend Limit",
-                timeValue: timeScheduler.weekendLimit,
-                relativeDateFormatter: relativeDateFormatter
-            )
-            TimeDisplay(
-                name: "Played Time",
-                timeValue: timeScheduler.playedTime,
-                relativeDateFormatter: relativeDateFormatter
-            )
+        VStack(spacing: 30) {
+            VStack(spacing: 15) {
+                Text("Time Played Today")
+                    .font(.headline)
+                Text("\(Int(playedTime.value)) minutes")
+                    .font(.system(size: 24, weight: .bold))
+            }
+            .padding()
+            .background(Color(.windowBackgroundColor))
+            .cornerRadius(8)
+            
+            VStack(spacing: 15) {
+                Text("Time Remaining")
+                    .font(.headline)
+                Text("\(timeRemaining) minutes")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(timeRemaining < 15 ? .red : .primary)
+            }
+            .padding()
+            .background(Color(.windowBackgroundColor))
+            .cornerRadius(8)
+            .id(timeRemaining)
+            
+            VStack(spacing: 15) {
+                Text("Process Status")
+                    .font(.headline)
+                if let process = processMonitor.monitoredProcess {
+                    Text(process.state.rawValue)
+                        .font(.system(size: 20))
+                        .foregroundColor(process.state == .running ? .green : .orange)
+                } else {
+                    Text("No process monitored")
+                        .font(.system(size: 20))
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding()
+            .background(Color(.windowBackgroundColor))
+            .cornerRadius(8)
         }
-        .padding()
+        .padding(40)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.textBackgroundColor))
     }
 }
 
@@ -37,7 +69,6 @@ struct ContentView: View {
 struct TimeDisplay: View {
     let name: String
     @ObservedObject var timeValue: TimeValue
-    let relativeDateFormatter: RelativeDateTimeFormatter
     
     var body: some View {
         HStack {
@@ -51,6 +82,7 @@ struct TimeDisplay: View {
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         let monitor = ProcessMonitor()
-        ContentView(processMonitor: monitor)
+        let scheduler = TimeScheduler(processMonitor: monitor)
+        ContentView(processMonitor: monitor, timeScheduler: scheduler)
     }
 } 

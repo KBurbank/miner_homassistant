@@ -7,6 +7,7 @@
   - Duplicate functionality
   - Unused functions
   - Potential circular dependencies
+  - Heavy use of singletons making testing and state management difficult
 
 ## Refactoring Goals
 1. Simplify the codebase
@@ -14,6 +15,7 @@
 3. Eliminate unused functions
 4. Resolve circular dependencies
 5. Maintain existing functionality
+6. Replace singletons with proper dependency injection
 
 ## Approach
 We will refactor one class at a time, ensuring the app remains functional after each change.
@@ -33,18 +35,22 @@ The process for each class will be:
   - Removed time-related functionality
   - Removed MQTT update logic
   - Reduced dependencies
+  - Converted from singleton to injected dependency
 - [x] StatusBarManager
   - No changes needed, already well-structured
+  - Receives dependencies through constructor
 - [x] NotificationManager
   - No changes needed, already well-structured
 - [x] TimeScheduler
   - Consolidated time-related functionality
   - Improved MQTT update handling
   - Added proper day transition handling
+  - Converted from singleton to injected dependency
 - [x] HomeAssistantClient
   - Removed ProcessMonitor dependency
   - Simplified MQTT update logic
   - Improved message handling
+  - Converted from singleton to injected dependency
 
 ### Models
 - [ ] TimeIntervalKind
@@ -64,6 +70,7 @@ The process for each class will be:
   - Added back settings functionality
   - Improved state management
   - Selective actor isolation for properties
+  - Now owns and manages core service instances
 - [x] main.swift
   - Simplified app initialization
   - Fixed actor isolation issues
@@ -104,6 +111,21 @@ The process for each class will be:
    - Implemented selective actor isolation
    - Fixed application startup sequence
 
+7. Improved Time Display Updates:
+   - Added computed timeRemaining property to StatusBarManager
+   - Updated ContentView to properly track time changes
+   - Ensured consistent time display across UI components
+   - Fixed menu and status text updates
+
+8. Removed Singleton Pattern:
+   - Converted ProcessMonitor to use dependency injection
+   - Made TimeScheduler an injected dependency
+   - Moved HomeAssistantClient to dependency injection
+   - AppDelegate now manages core service lifecycles
+   - All dependencies explicitly passed through constructors
+   - Improved testability and state management
+   - Clearer ownership and data flow
+
 ## Testing Strategy
 After each class refactor:
 1. Run build script
@@ -119,4 +141,12 @@ After each class refactor:
 ✅ Building successfully with minor warnings:
 - Some async/await operations might be unnecessary
 - All critical errors resolved
-- Proper actor isolation implemented 
+- Proper actor isolation implemented
+
+## Architecture Improvements
+- Removed all singletons except where absolutely necessary (e.g., Logger)
+- Clear ownership hierarchy with AppDelegate as the root
+- Explicit dependency injection through constructors
+- Better state isolation and management
+- Improved testability through removable of global state
+- Clearer data flow and component relationships 
